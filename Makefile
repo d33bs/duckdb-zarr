@@ -1,4 +1,4 @@
-.PHONY: clean clean_all clippy fmt fmt-check generate_fixtures lint
+.PHONY: clean clean_all clippy fmt fmt-check generate_fixtures lint release-check render-community-descriptor
 
 PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
@@ -49,6 +49,14 @@ clippy:
 	cargo clippy --lib --all-features -- -D warnings
 
 lint: fmt-check clippy
+
+release-check:
+	python3 scripts/check_release_ready.py
+
+render-community-descriptor:
+	@test -n "$(REF)" || (echo "Usage: make render-community-descriptor REF=v0.1.0" >&2; exit 1)
+	python3 scripts/render_community_descriptor.py --ref "$(REF)" --out build/community-extensions/extensions/duckdb_zarr/description.yml
+	python3 scripts/check_release_ready.py --description-path build/community-extensions/extensions/duckdb_zarr/description.yml --strict-community-ref
 
 generate_fixtures:
 	@if command -v uv >/dev/null 2>&1; then \

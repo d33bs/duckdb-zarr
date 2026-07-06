@@ -31,11 +31,7 @@ This project is related to [xarray-sql](https://github.com/alxmrs/xarray-sql) an
 
 ### Installation
 
-**Pre-built binaries** (coming soon):
-```sql
-INSTALL zarr FROM community;
-LOAD zarr;
-```
+**Pre-built binaries**: not published yet.
 
 **Build from source** (see Development Setup below)
 

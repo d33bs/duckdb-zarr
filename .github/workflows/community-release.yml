@@ -1,0 +1,45 @@
+name: Community Extension Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Release tag or 40-character commit hash to publish
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  descriptor:
+    name: Render community descriptor
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_REF: ${{ github.event.release.tag_name || inputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Render descriptor for release ref
+        run: |
+          uv run scripts/render_community_descriptor.py \
+            --ref "$RELEASE_REF" \
+            --out build/community-extensions/extensions/duckdb_zarr/description.yml
+
+      - name: Validate rendered descriptor
+        run: |
+          uv run scripts/check_release_ready.py \
+            --description-path build/community-extensions/extensions/duckdb_zarr/description.yml \
+            --strict-community-ref
+
+      - name: Upload descriptor artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: duckdb_zarr-community-extension-descriptor
+          path: build/community-extensions/extensions/duckdb_zarr/description.yml
