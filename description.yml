@@ -1,5 +1,5 @@
 extension:
-  name: duckdb_zarr
+  name: zarr
   description: Query Zarr array stores (v2 and v3) with SQL — read xarray-convention datasets as tables
   version: 0.1.0
   language: Rust

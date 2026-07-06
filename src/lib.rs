@@ -55,3 +55,13 @@ pub unsafe extern "C" fn duckdb_zarr_init_c_api(
         }
     }
 }
+
+/// # Safety
+/// Entrypoint called by DuckDB for the community extension name.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn zarr_init_c_api(
+    info: duckdb::ffi::duckdb_extension_info,
+    access: *const duckdb::ffi::duckdb_extension_access,
+) -> bool {
+    unsafe { duckdb_zarr_init_c_api(info, access) }
+}

@@ -85,7 +85,7 @@ def main() -> int:
             )
 
     descriptor_checks = {
-        "extension.name": r"^\s*name:\s*duckdb_zarr\s*$",
+        "extension.name": r"^\s*name:\s*zarr\s*$",
         "extension.language": r"^\s*language:\s*Rust\s*$",
         "extension.build": r"^\s*build:\s*cargo\s*$",
         "extension.requires_toolchains": r'^\s*requires_toolchains:\s*["\']rust;python3["\']\s*$',
