@@ -30,16 +30,16 @@ jobs:
         run: |
           uv run scripts/render_community_descriptor.py \
             --ref "$RELEASE_REF" \
-            --out build/community-extensions/extensions/duckdb_zarr/description.yml
+            --out build/community-extensions/extensions/zarr/description.yml
 
       - name: Validate rendered descriptor
         run: |
           uv run scripts/check_release_ready.py \
-            --description-path build/community-extensions/extensions/duckdb_zarr/description.yml \
+            --description-path build/community-extensions/extensions/zarr/description.yml \
             --strict-community-ref
 
       - name: Upload descriptor artifact
         uses: actions/upload-artifact@v4
         with:
-          name: duckdb_zarr-community-extension-descriptor
-          path: build/community-extensions/extensions/duckdb_zarr/description.yml
+          name: zarr-community-extension-descriptor
+          path: build/community-extensions/extensions/zarr/description.yml

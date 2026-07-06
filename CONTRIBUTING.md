@@ -82,7 +82,7 @@ Release checklist:
 4. Download the descriptor artifact from the `Community Extension Release`
    workflow.
 5. Open a PR against `duckdb/community-extensions` adding or updating
-   `extensions/duckdb_zarr/description.yml` with that artifact.
+   `extensions/zarr/description.yml` with that artifact.
 
 See [docs/community-extension-release.md](docs/community-extension-release.md)
 for the detailed release and DuckDB-version policy.

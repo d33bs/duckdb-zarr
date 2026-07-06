@@ -19,6 +19,13 @@ name = "duckdb_zarr"
 path = "src/wasm_lib.rs"
 crate-type = ["staticlib"]
 
+[[example]]
+# Community extension builds use extension.name from description.yml as
+# EXTENSION_NAME, so provide the same staticlib example under the published name.
+name = "zarr"
+path = "src/wasm_lib_zarr.rs"
+crate-type = ["staticlib"]
+
 [dependencies]
 duckdb = { version = "=1.10504.0", features = ["loadable-extension"] }
 # Base zarrs features: no blosc here — blosc_src bundles pthreads that conflict

@@ -40,7 +40,7 @@ make render-community-descriptor REF=v0.1.0
 ```
 
 The rendered file is written to
-`build/community-extensions/extensions/duckdb_zarr/description.yml` with
+`build/community-extensions/extensions/zarr/description.yml` with
 `repo.ref` set to the release tag.
 
 ## GitHub Release Automation
@@ -84,14 +84,14 @@ Re-enable platforms only after the CI build and SQLLogic tests pass for them.
 4. Download the validated descriptor artifact from the `Community Extension
    Release` workflow.
 5. Open a PR against `duckdb/community-extensions` adding or updating
-   `extensions/duckdb_zarr/description.yml` with that artifact.
+   `extensions/zarr/description.yml` with that artifact.
 
 After the PR is merged and built by DuckDB's community infrastructure, users can
 install with:
 
 ```sql
-INSTALL duckdb_zarr FROM community;
-LOAD duckdb_zarr;
+INSTALL zarr FROM community;
+LOAD zarr;
 ```
 
 ## DuckDB Version Policy

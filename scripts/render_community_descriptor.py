@@ -104,7 +104,7 @@ def main() -> int:
     out = ROOT / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render(args.ref, version), encoding="utf-8")
-    print(f"wrote {out.relative_to(ROOT)} for duckdb_zarr {version} at {args.ref}")
+    print(f"wrote {out.relative_to(ROOT)} for zarr {version} at {args.ref}")
     return 0
 
 
