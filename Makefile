@@ -1,4 +1,4 @@
-.PHONY: clean clean_all clippy fmt fmt-check generate_fixtures lint release-check render-community-descriptor
+.PHONY: clean clean_all clippy fmt fmt-check generate_fixtures lint release-check render-community-descriptor test_http test_http_debug test_http_release
 
 PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
@@ -38,6 +38,20 @@ release: build_extension_library_release build_extension_with_metadata_release
 test: test_debug
 test_debug: generate_fixtures test_extension_debug
 test_release: generate_fixtures test_extension_release
+
+# HTTP integration tests — read fixtures over a loopback http.server (test/conftest.py),
+# exercising the remote reader's v2 .zmetadata and v3 consolidated_metadata paths.
+# Build the extension first (make debug / make release). pytest runs via uv so no
+# venv setup is needed; duckdb is pinned to the extension's target DuckDB version.
+test_http: test_http_debug
+test_http_debug: generate_fixtures
+	uv run --with pytest --with 'duckdb==$(TARGET_DUCKDB_VERSION:v%=%)' \
+		pytest test/test_http_integration.py \
+		--extension build/debug/$(EXTENSION_NAME).duckdb_extension -v
+test_http_release: generate_fixtures
+	uv run --with pytest --with 'duckdb==$(TARGET_DUCKDB_VERSION:v%=%)' \
+		pytest test/test_http_integration.py \
+		--extension build/release/$(EXTENSION_NAME).duckdb_extension -v
 
 fmt:
 	cargo fmt --all

@@ -14,7 +14,8 @@ GROUP BY lat, lon;
 SELECT * FROM 'https://example.com/data.zarr';
 
 -- Explicit table function with optional dims= for multi-group stores
-SELECT * FROM read_zarr('path/to/store.zarr', dims=['time', 'lat', 'lon']);
+-- (dims is a string: comma-separated, or a JSON array like '["time","lat","lon"]')
+SELECT * FROM read_zarr('path/to/store.zarr', dims='time,lat,lon');
 
 -- Select one array by its store-relative path (including nested arrays)
 SELECT * FROM read_zarr('image.ome.zarr', array_path='labels/nuclei/0');
