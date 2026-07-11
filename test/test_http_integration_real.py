@@ -85,3 +85,33 @@ def test_precip_decode(con, gpcp):
     ).fetchone()
     assert total == 200
     assert non_null >= 1  # at least some real precip values decoded (rest may be fill/NULL)
+
+
+# ── Real public OME-Zarr (IDR) via array_path ───────────────────────────────
+# A real bioimage store with NO consolidated metadata and NO per-array dimension
+# metadata — exactly the case array_path (open the array without listing the
+# store) plus OME multiscales.axes dimension names unlock.
+IDR_OME = "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0062A/6001240.zarr"
+
+
+@pytest.fixture(scope="module")
+def idr():
+    """Skip when the IDR OME-Zarr store is unreachable."""
+    try:
+        with urllib.request.urlopen(f"{IDR_OME}/0/.zarray", timeout=20) as resp:
+            if resp.status != 200:
+                pytest.skip(f"IDR store returned HTTP {resp.status}")
+    except Exception as exc:
+        pytest.skip(f"IDR store unreachable: {exc}")
+    return IDR_OME
+
+
+def test_idr_ome_zarr_array_path(con, idr):
+    """A real OME-Zarr image with no consolidated metadata reads by array_path;
+    the c/z/y/x dimensions are recovered from OME multiscales.axes."""
+    rows = con.execute(
+        f"SELECT c, z, y, x, \"0\" FROM read_zarr('{idr}', array_path='0') LIMIT 100"
+    ).fetchall()
+    assert len(rows) == 100
+    assert all(r[0] == 0 and r[1] == 0 for r in rows)  # first chunk: channel 0, z 0
+    assert all(r[4] is not None for r in rows)          # uint16 intensities decoded

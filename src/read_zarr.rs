@@ -92,14 +92,19 @@ impl VTab for ReadZarrVTab {
 
         let fs = unsafe { extract_file_system(bind) };
         let store = open_store(&store_path, Some(fs))?;
-        let array_names = crate::zarr_reader::meta::list_array_names(&store_path, &store)?;
-
-        if array_names.is_empty() {
-            return Err(format!("no Zarr arrays found in '{store_path}'").into());
-        }
-
         if let Some(requested) = requested_array {
-            let array_name = select_array_name(&array_names, &requested)?;
+            // Only this one array is needed. Listing requires consolidated metadata
+            // on remote stores, so here it is best-effort: when available it lets
+            // coordinate arrays be resolved; when not (e.g. an OME-Zarr store served
+            // over HTTP without consolidation) the array still reads by array_path,
+            // with dimensions synthesized as integer indices.
+            let array_names =
+                crate::zarr_reader::meta::list_array_names(&store_path, &store).unwrap_or_default();
+            let array_name = if array_names.is_empty() {
+                requested.trim().trim_matches('/').to_string()
+            } else {
+                select_array_name(&array_names, &requested)?
+            };
             let group = dim_group_for_array(&store, &array_names, &array_name)?;
             if let Some(dims) = requested_dims {
                 if group.dims != dims {
@@ -111,6 +116,11 @@ impl VTab for ReadZarrVTab {
                 }
             }
             return finish_bind(bind, store, &group);
+        }
+
+        let array_names = crate::zarr_reader::meta::list_array_names(&store_path, &store)?;
+        if array_names.is_empty() {
+            return Err(format!("no Zarr arrays found in '{store_path}'").into());
         }
 
         let (dim_groups, _coord_names) = infer_dim_groups(&store, &array_names)?;

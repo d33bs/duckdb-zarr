@@ -34,3 +34,25 @@ FROM read_zarr('test/fixtures/bioimage/ome_zarr/synthetic_multichannel.ome.zarr'
 WHERE "labels/nuclei/0" > 0
 GROUP BY label;
 ```
+
+## Remote OME-Zarr
+
+Public OME-Zarr images can be read straight from a URL. Bioimage stores usually
+lack consolidated metadata, so whole-store operations (`read_zarr_metadata`, or
+`read_zarr` without `array_path`) aren't available remotely — but a specific
+resolution level reads by `array_path`, with `c`/`z`/`y`/`x` recovered from the
+OME `multiscales.axes`:
+
+```sql
+-- A public image from the Image Data Resource (IDR)
+SELECT c, z, y, x, "0" AS intensity
+FROM read_zarr(
+  'https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0062A/6001240.zarr',
+  array_path='0'
+)
+LIMIT 10;
+```
+
+Filters and aggregates over a full pyramid level scan every chunk (there is no
+sub-chunk filter pushdown yet), so keep remote exploratory queries bounded with
+`LIMIT` or use a coarse resolution level.

@@ -252,8 +252,16 @@ pub fn dim_group_for_array(
     array_name: &str,
 ) -> Result<DimGroup, Box<dyn std::error::Error>> {
     let arr = open_array(store, array_name)?;
-    let dims = dimension_names(&arr, array_name)?;
     let shape = arr.shape().to_vec();
+    // Named dimensions come from xarray metadata; fall back to OME-Zarr
+    // `multiscales.axes` (matched by rank) for stores that carry neither
+    // `dimension_names` nor `_ARRAY_DIMENSIONS` on the array itself.
+    let dims = match dimension_names(&arr, array_name) {
+        Ok(dims) => dims,
+        Err(err) => ome_axis_names(store, array_name)
+            .filter(|axes| axes.len() == shape.len())
+            .ok_or(err)?,
+    };
     let first_chunk = vec![0u64; shape.len()];
     let chunk_shape = arr
         .chunk_shape(&first_chunk)?
@@ -272,6 +280,52 @@ pub fn dim_group_for_array(
         data_var_names: vec![array_name.to_string()],
         coord_var_names,
     })
+}
+
+/// OME-Zarr fallback for dimension names.
+///
+/// Real OME-Zarr images record axis names in the parent group's
+/// `multiscales.axes` rather than in per-array `dimension_names` /
+/// `_ARRAY_DIMENSIONS`. This resolves them by matching the array to its
+/// `multiscales.datasets[].path` entry, recovering `c`/`z`/`y`/`x` for
+/// `array_path` reads of stores like those in the IDR.
+fn ome_axis_names(store: &ZarrStore, array_name: &str) -> Option<Vec<String>> {
+    use zarrs::group::Group;
+
+    let (group_path, dataset) = match array_name.rsplit_once('/') {
+        Some((group, ds)) => (format!("/{group}"), ds),
+        None => ("/".to_string(), array_name),
+    };
+    let group = Group::open(store.clone(), &group_path).ok()?;
+    let multiscales = group.attributes().get("multiscales")?.as_array()?;
+    for ms in multiscales {
+        let matches_dataset = ms
+            .get("datasets")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|datasets| {
+                datasets
+                    .iter()
+                    .any(|d| d.get("path").and_then(serde_json::Value::as_str) == Some(dataset))
+            });
+        if !matches_dataset {
+            continue;
+        }
+        let Some(axes) = ms.get("axes").and_then(serde_json::Value::as_array) else {
+            continue;
+        };
+        let names: Vec<String> = axes
+            .iter()
+            .filter_map(|axis| {
+                axis.get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .map(String::from)
+            })
+            .collect();
+        if !names.is_empty() {
+            return Some(names);
+        }
+    }
+    None
 }
 
 fn parent_path(name: &str) -> &str {
