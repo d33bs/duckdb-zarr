@@ -21,3 +21,8 @@ dev = [
 
 [tool.uv]
 package = false
+
+[tool.pytest.ini_options]
+markers = [
+    "network: reads a real public store over the internet (skipped when unreachable)",
+]
