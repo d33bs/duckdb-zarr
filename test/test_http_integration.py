@@ -102,3 +102,48 @@ def test_metadata_roles(con, store):
         ("temperature", "data"),
         ("time", "coord"),
     ]
+
+
+# ── OME-Zarr over HTTP ──────────────────────────────────────────────────────
+# The same synthetic OME-NGFF bioimage the SQLLogicTest suite reads locally, now
+# read remotely. It carries consolidated metadata (see scripts/generate_fixtures.py),
+# so its arrays — including the nested label image — are discoverable over HTTP.
+
+OME_FIXTURE = "test/fixtures/bioimage/ome_zarr/synthetic_multichannel.ome.zarr"
+
+
+@pytest.fixture
+def ome_store(http_server_url):
+    if not (ROOT / OME_FIXTURE).exists():
+        pytest.fail(
+            f"OME fixture not found: {OME_FIXTURE}\n"
+            "Run: python scripts/generate_fixtures.py"
+        )
+    return f"{http_server_url}/{OME_FIXTURE}"
+
+
+def test_ome_metadata(con, ome_store):
+    """The image level and the nested label array are both enumerated over HTTP."""
+    rows = con.execute(
+        f"SELECT name, role FROM read_zarr_metadata('{ome_store}') ORDER BY name"
+    ).fetchall()
+    assert rows == [("0", "data"), ("labels/nuclei/0", "data")]
+
+
+def test_ome_array_path_channels(con, ome_store):
+    """array_path selects a resolution level; per-channel means match the fixture."""
+    rows = con.execute(
+        f"SELECT c, AVG(\"0\") FROM read_zarr('{ome_store}', array_path='0') "
+        "GROUP BY c ORDER BY c"
+    ).fetchall()
+    assert rows == [(0, 6.5), (1, 106.5)]
+
+
+def test_ome_nested_label(con, ome_store):
+    """The nested label image is readable by its store-relative array_path."""
+    rows = con.execute(
+        "SELECT \"labels/nuclei/0\" AS label, COUNT(*) "
+        f"FROM read_zarr('{ome_store}', array_path='labels/nuclei/0') "
+        "GROUP BY label ORDER BY label"
+    ).fetchall()
+    assert rows == [(0, 6), (1, 3), (2, 3)]

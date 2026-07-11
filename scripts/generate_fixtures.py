@@ -216,6 +216,13 @@ def main() -> None:
         )
         print(f"  wrote nested labels to {dest}")
 
+    # Consolidate the OME-Zarr store so it is also readable over HTTP. Remote
+    # (object-store) listing needs consolidated metadata; local reads scan
+    # directories and ignore it. Idempotent — skipped once already consolidated.
+    if "consolidated_metadata" not in (dest / "zarr.json").read_text():
+        zarr.consolidate_metadata(str(dest))
+        print(f"  consolidated {dest}")
+
     # ── float_baseline (synthetic) ───────────────────────────────────────────
     # True float32 baseline with no packing, no sentinels.
     # Tests: basic read_zarr, coord classification, plain numeric copy path.
