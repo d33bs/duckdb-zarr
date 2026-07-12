@@ -6,12 +6,12 @@ A Rust DuckDB extension that lets you query [Zarr](https://zarr.dev/) stores wit
 
 ```sql
 -- Query a public Zarr store straight from its URL. GPCP is a multi-group store
--- (a precip variable plus CF bounds), so pick the group with dims= — a comma-separated
--- string (or a JSON-array string like '["time","latitude","longitude"]').
+-- (a precip variable plus CF bounds), so pick the group with dims= — a list of
+-- dimension names.
 SELECT time, latitude, longitude, precip
 FROM read_zarr(
   'https://ncsa.osn.xsede.org/Pangeo/pangeo-forge/gpcp-feedstock/gpcp.zarr',
-  dims='time,latitude,longitude'
+  dims=['time','latitude','longitude']
 )
 LIMIT 10;
 

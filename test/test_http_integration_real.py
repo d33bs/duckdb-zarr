@@ -25,7 +25,7 @@ import pytest
 # blosc-compressed, with CF bounds variables (lat_bounds/lon_bounds/time_bounds)
 # that make it a multi-group store — a realistic public target for the reader.
 GPCP = "https://ncsa.osn.xsede.org/Pangeo/pangeo-forge/gpcp-feedstock/gpcp.zarr"
-PRECIP_DIMS = "time,latitude,longitude"
+PRECIP_DIMS = "['time','latitude','longitude']"
 
 pytestmark = pytest.mark.network
 
@@ -69,7 +69,7 @@ def test_coordinate_pivot(con, gpcp):
     """The coordinate pivot works over HTTP (projection skips the precip chunk)."""
     row = con.execute(
         "SELECT MIN(latitude), COUNT(*) FROM ("
-        f"  SELECT latitude FROM read_zarr('{gpcp}', dims='{PRECIP_DIMS}') LIMIT 500"
+        f"  SELECT latitude FROM read_zarr('{gpcp}', dims={PRECIP_DIMS}) LIMIT 500"
         ")"
     ).fetchone()
     assert row[0] == -90.0  # GPCP latitude starts at the south pole
@@ -80,7 +80,7 @@ def test_precip_decode(con, gpcp):
     """End-to-end decode of a real blosc-compressed v2 chunk fetched over HTTP."""
     total, non_null = con.execute(
         "SELECT COUNT(*), COUNT(precip) FROM ("
-        f"  SELECT precip FROM read_zarr('{gpcp}', dims='{PRECIP_DIMS}') LIMIT 200"
+        f"  SELECT precip FROM read_zarr('{gpcp}', dims={PRECIP_DIMS}) LIMIT 200"
         ")"
     ).fetchone()
     assert total == 200

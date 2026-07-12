@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 
-use duckdb::core::{DataChunkHandle, LogicalTypeId};
-use duckdb::vtab::{BindInfo, InitInfo, TableFunctionInfo, VTab};
+use duckdb::core::{DataChunkHandle, LogicalTypeHandle, LogicalTypeId};
+use duckdb::vtab::{BindInfo, InitInfo, TableFunctionInfo, VTab, Value};
 
 use crate::zarr_reader::meta::{
     build_column_defs, build_work_units, dim_group_for_array, dimension_names, extract_file_system,
@@ -74,10 +74,11 @@ impl VTab for ReadZarrVTab {
         let path_val = bind.get_parameter(0);
         let store_path = path_val.to_string();
 
-        // Optional dims= named parameter: JSON array string e.g. '["time","lat","lon"]'
+        // Optional dims= named parameter: a list of dimension names,
+        // e.g. read_zarr(store, dims=['time','lat','lon']).
         let requested_dims: Option<Vec<String>> = bind
             .get_named_parameter("dims")
-            .map(|v| parse_dims_param(&v.to_string()))
+            .map(parse_dims_param)
             .transpose()?;
         let array_path = bind
             .get_named_parameter("array_path")
@@ -254,7 +255,10 @@ impl VTab for ReadZarrVTab {
 
     fn named_parameters() -> Option<Vec<(String, duckdb::core::LogicalTypeHandle)>> {
         Some(vec![
-            ("dims".to_string(), LogicalTypeId::Varchar.into()),
+            (
+                "dims".to_string(),
+                LogicalTypeHandle::list(&LogicalTypeId::Varchar.into()),
+            ),
             ("array".to_string(), LogicalTypeId::Varchar.into()),
             ("array_path".to_string(), LogicalTypeId::Varchar.into()),
         ])
@@ -265,22 +269,14 @@ impl VTab for ReadZarrVTab {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Parse a `dims` named-parameter value into an ordered list of dimension names.
+/// Extract the ordered dimension names from a `dims` named-parameter value.
 ///
-/// Accepts either a JSON array (`'["time","lat","lon"]'`) or a plain
-/// comma-separated string (`'time,lat,lon'`).
-fn parse_dims_param(s: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let trimmed = s.trim();
-    if trimmed.starts_with('[') {
-        let arr: Vec<String> = serde_json::from_str(trimmed)?;
-        Ok(arr)
-    } else {
-        Ok(trimmed
-            .split(',')
-            .map(|d| d.trim().to_string())
-            .filter(|d| !d.is_empty())
-            .collect())
-    }
+/// `dims` is a `LIST(VARCHAR)`, e.g. `read_zarr(store, dims=['time','lat','lon'])`.
+fn parse_dims_param(value: Value) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let items = value
+        .to_list()
+        .ok_or("dims must be a list of dimension names, e.g. dims=['time','lat','lon']")?;
+    Ok(items.iter().map(|item| item.to_string()).collect())
 }
 
 fn finish_bind(
