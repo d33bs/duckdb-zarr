@@ -133,7 +133,7 @@ def test_ome_metadata(con, ome_store):
 def test_ome_array_path_channels(con, ome_store):
     """array_path selects a resolution level; per-channel means match the fixture."""
     rows = con.execute(
-        f"SELECT c, AVG(\"0\") FROM read_zarr('{ome_store}', array_path='0') "
+        f"SELECT c, AVG(value) FROM read_zarr('{ome_store}', array_path='0') "
         "GROUP BY c ORDER BY c"
     ).fetchall()
     assert rows == [(0, 6.5), (1, 106.5)]
@@ -142,7 +142,7 @@ def test_ome_array_path_channels(con, ome_store):
 def test_ome_nested_label(con, ome_store):
     """The nested label image is readable by its store-relative array_path."""
     rows = con.execute(
-        "SELECT \"labels/nuclei/0\" AS label, COUNT(*) "
+        "SELECT value AS label, COUNT(*) "
         f"FROM read_zarr('{ome_store}', array_path='labels/nuclei/0') "
         "GROUP BY label ORDER BY label"
     ).fetchall()

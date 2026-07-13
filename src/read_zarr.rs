@@ -272,6 +272,14 @@ impl VTab for ReadZarrVTab {
 /// Extract the ordered dimension names from a `dims` named-parameter value.
 ///
 /// `dims` is a `LIST(VARCHAR)`, e.g. `read_zarr(store, dims=['time','lat','lon'])`.
+/// A single data-variable column selected by `array_path` has a numeric level
+/// name (`0`) or a nested store-relative path (`labels/nuclei/0`), both of which
+/// otherwise need SQL double-quoting. Surface it as `value` instead. Ordinary
+/// variable names (`temperature`, `precip`) are left unchanged.
+fn needs_value_alias(name: &str) -> bool {
+    name.contains('/') || name.parse::<u64>().is_ok()
+}
+
 fn parse_dims_param(value: Value) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let items = value
         .to_list()
@@ -297,10 +305,19 @@ fn finish_bind(
 
     let columns = build_column_defs(&store, group, &coord_arrays)?;
 
-    // Register output columns with DuckDB.
+    // Register output columns with DuckDB. When a single array is selected by
+    // array_path, its name is a numeric level (`0`) or a nested store-relative
+    // path (`labels/nuclei/0`); surface that value column as `value` so callers
+    // don't have to double-quote it. Decoding still keys off `col.name`.
+    let single_data_var = columns.iter().filter(|c| !c.is_coord).count() == 1;
     for col in &columns {
         let duckdb_type = col.on_disk_dtype.to_duckdb_type(&col.encoding);
-        bind.add_result_column(&col.name, duckdb_type);
+        let display_name = if single_data_var && !col.is_coord && needs_value_alias(&col.name) {
+            "value"
+        } else {
+            col.name.as_str()
+        };
+        bind.add_result_column(display_name, duckdb_type);
     }
 
     // Pre-open data variable arrays once at bind time.

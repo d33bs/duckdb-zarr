@@ -110,7 +110,7 @@ def test_idr_ome_zarr_array_path(con, idr):
     """A real OME-Zarr image with no consolidated metadata reads by array_path;
     the c/z/y/x dimensions are recovered from OME multiscales.axes."""
     rows = con.execute(
-        f"SELECT c, z, y, x, \"0\" FROM read_zarr('{idr}', array_path='0') LIMIT 100"
+        f"SELECT c, z, y, x, value FROM read_zarr('{idr}', array_path='0') LIMIT 100"
     ).fetchall()
     assert len(rows) == 100
     assert all(r[0] == 0 and r[1] == 0 for r in rows)  # first chunk: channel 0, z 0

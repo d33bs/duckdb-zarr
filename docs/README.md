@@ -70,13 +70,13 @@ FROM read_zarr_metadata('test/fixtures/bioimage/ome_zarr/synthetic_multichannel.
 Then pass `array_path=` when you want a specific image or label array:
 
 ```sql
-SELECT c, AVG("0") AS mean_intensity
+SELECT c, AVG(value) AS mean_intensity
 FROM read_zarr('test/fixtures/bioimage/ome_zarr/synthetic_multichannel.ome.zarr', array_path='0')
 GROUP BY c;
 
-SELECT "labels/nuclei/0" AS label, COUNT(*) AS pixels
+SELECT value AS label, COUNT(*) AS pixels
 FROM read_zarr('test/fixtures/bioimage/ome_zarr/synthetic_multichannel.ome.zarr', array_path='labels/nuclei/0')
-WHERE "labels/nuclei/0" > 0
+WHERE value > 0
 GROUP BY label;
 ```
 

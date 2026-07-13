@@ -16,22 +16,22 @@ is the same store-relative path reported by `read_zarr_metadata`.
 Then select a resolution level and aggregate by channel:
 
 ```sql
-SELECT c, AVG("0") AS mean_intensity
+SELECT c, AVG(value) AS mean_intensity
 FROM read_zarr('test/fixtures/bioimage/ome_zarr/synthetic_multichannel.ome.zarr', array_path='0')
 GROUP BY c;
 ```
 
-Here, `0` is the conventional path for the highest-resolution level. Xarray
-dimension names such as `c`, `y`, and `x` become SQL columns — add a
-`WHERE y BETWEEN ... AND x BETWEEN ...` clause to aggregate a sub-region. Numeric
-and nested array names must be double-quoted when referenced as columns.
+Here, `0` is the conventional path for the highest-resolution level. When you
+select a single array with `array_path`, its data is exposed as a `value` column
+and its xarray dimension names (`c`, `y`, `x`) become the other columns — add a
+`WHERE y BETWEEN ... AND x BETWEEN ...` clause to aggregate a sub-region.
 
 Nested label arrays use the same selector:
 
 ```sql
-SELECT "labels/nuclei/0" AS label, COUNT(*) AS pixels
+SELECT value AS label, COUNT(*) AS pixels
 FROM read_zarr('test/fixtures/bioimage/ome_zarr/synthetic_multichannel.ome.zarr', array_path='labels/nuclei/0')
-WHERE "labels/nuclei/0" > 0
+WHERE value > 0
 GROUP BY label;
 ```
 
@@ -45,7 +45,7 @@ OME `multiscales.axes`:
 
 ```sql
 -- A public image from the Image Data Resource (IDR)
-SELECT c, z, y, x, "0" AS intensity
+SELECT c, z, y, x, value AS intensity
 FROM read_zarr(
   'https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0062A/6001240.zarr',
   array_path='0'
