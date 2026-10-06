@@ -1,8 +1,15 @@
 #
-# Detects when the pinned DuckDB version has drifted from the version the
-# sqllogictest test runner installs (pip `duckdb`, latest patch of the active
-# minor line), and opens a PR bumping the pinned sites. The PR's normal
-# build/test pipeline is the validation gate — a human reviews and merges.
+# Detects when the pinned DuckDB version has drifted from the latest stable
+# pip `duckdb` release (latest patch of the active minor line — what the
+# community-extensions repo builds against), and opens a PR bumping the
+# pinned sites. The PR's normal build/test pipeline is the validation gate —
+# a human reviews and merges.
+#
+# The sqllogictest test runner itself installs the pinned version
+# (DUCKDB_TEST_VERSION in the Makefile), so a pin that drifts behind the
+# latest stable release no longer breaks CI test loading — it silently ships
+# an extension the community repo can't distribute. This workflow is what
+# surfaces that drift.
 #
 # Why the pinned sites: the extension links the `duckdb` crate and the Makefile
 # stamps the extension-metadata version via TARGET_DUCKDB_VERSION; the
@@ -44,12 +51,13 @@ jobs:
           echo "version=$cur" >> "$GITHUB_OUTPUT"
           echo "Currently pinned: $cur"
 
-      - name: Resolve latest test-runner DuckDB version
+      - name: Resolve latest stable DuckDB version
         id: latest
         run: |
-          # The sqllogictest runner installs the pip `duckdb` package. Stay within
-          # the current minor line — a major/minor jump is a deliberate, manual
-          # upgrade (it usually needs code changes), not an automated bump.
+          # What the community-extensions repo builds against: the latest
+          # stable pip `duckdb`, within the current minor line — a major/minor
+          # jump is a deliberate, manual upgrade (it usually needs code
+          # changes), not an automated bump.
           minor=$(echo "${{ steps.current.outputs.version }}" | sed -E 's/^v([0-9]+\.[0-9]+)\..*/\1/')
           latest=$(curl -fsSL https://pypi.org/pypi/duckdb/json \
             | jq -r --arg m "$minor." '
@@ -119,7 +127,8 @@ jobs:
           body: |
             Automated DuckDB version bump.
 
-            The sqllogictest test runner (pip `duckdb`) moved to
+            The latest stable pip `duckdb` release (what
+            duckdb/community-extensions builds against) moved to
             **${{ steps.latest.outputs.version }}**. This updates the pinned
             sites that must match it (exact match is required because
             `USE_UNSTABLE_C_API=1`):
