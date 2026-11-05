@@ -1,0 +1,10 @@
+{
+  "preview": true,
+  "pull_request": "https://github.com/xqlsystems/duckdb-zarr/pull/75",
+  "source_repository": "d33bs/duckdb-zarr",
+  "source_branch": "docs/pr75-docsite-refresh",
+  "source_commit": "3cb9d208fbabc78b68cb03a1c36aa5020aea9f37",
+  "note": "Merge commit 3cb9d20 plus uncommitted documentation alignment edits for PR #77 (dims :=), not yet committed to the branch.",
+  "built_at": "2026-11-05T18:40:00Z",
+  "build_command": "uv run scripts/build_docs.py"
+}

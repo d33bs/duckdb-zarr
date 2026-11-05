@@ -1,0 +1,173 @@
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Query scientific Zarr arrays with DuckDB and SQL.">
+  <title>Climate · duckdb-zarr documentation</title>
+  
+  <link rel="stylesheet" href="../../site.css">
+  <script src="../../site.js" data-site-root="../../" data-search-url="../../search/search_index.json" defer></script>
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="project-header">
+  <a class="wordmark" href="../../"><img class="brand-logo" src="../../images/logo.png" alt="" width="32" height="32">duckdb-zarr</a>
+  <nav class="project-links" aria-label="Project navigation">
+    <a href="../../" aria-current="true">Documentation</a>
+    <a href="https://github.com/xqlsystems/duckdb-zarr">GitHub ↗</a>
+  </nav>
+  <div class="docs-tools">
+    <button type="button" class="guides-toggle" aria-expanded="false" aria-controls="guide-nav">Browse guides</button>
+    <form class="docs-search" role="search">
+      <label class="sr-only" for="docs-search-input">Search documentation</label>
+      <input id="docs-search-input" type="search" placeholder="Search the documentation…" autocomplete="off" aria-controls="search-results">
+      <div id="search-results" class="search-results" role="region" aria-label="Search results" aria-live="polite" hidden></div>
+    </form>
+  </div>
+</header>
+<div class="docs-layout">
+  <aside id="guide-nav" class="guide-nav">
+    <nav aria-label="Documentation guides">
+      <p class="nav-heading">In this guide</p>
+      <ul>
+  
+  <li>
+    <a href="../..">Start here</a>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Field guides</span>
+    <ul>
+  
+  <li>
+    <a href="../../biology/">Biology</a>
+    
+  </li>
+  
+  <li>
+    <a href="./" aria-current="page">Climate</a>
+    
+  </li>
+  
+  <li>
+    <a href="../geoscience/">Geoscience</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Formats</span>
+    <ul>
+  
+  <li>
+    <a href="../../anndata/">AnnData</a>
+    
+  </li>
+  
+  <li>
+    <a href="../../ome-zarr/">OME-Zarr</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Reference</span>
+    <ul>
+  
+  <li>
+    <a href="../../design/">How it works</a>
+    
+  </li>
+  
+  <li>
+    <a href="../../domains/">Scientific domains</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Development</span>
+    <ul>
+  
+  <li>
+    <a href="../../website/">Documentation website</a>
+    
+  </li>
+  
+  <li>
+    <a href="../../versioning/">Versioning</a>
+    
+  </li>
+  
+  <li>
+    <a href="../../community-extension-release/">Release guide</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+</ul>
+    </nav>
+  </aside>
+  <main id="main-content" class="docs-content example-content" tabindex="-1">
+    <p class="eyebrow">field guide</p>
+    <h1 id="duckdb-zarr-for-climate">duckdb-zarr <span class="title-accent">for climate.</span><a class="headerlink" href="#duckdb-zarr-for-climate" title="Permanent link">&para;</a></h1>
+<p>Explore temperature over time and public precipitation data using the
+repository's existing SQL examples. Run these in DuckDB with the Zarr extension
+loaded; see the <a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/README.md#loading-once-built">loading instructions</a>.
+These are static SQL examples, not browser-executed cells.</p>
+<p>For Landsat imagery and vegetation indices, see the
+<a href="../geoscience/">geoscience example</a>.</p>
+<h2 id="monthly-mean-air-temperature">Monthly mean air temperature<a class="headerlink" href="#monthly-mean-air-temperature" title="Permanent link">&para;</a></h2>
+<p>Group the real air-temperature tutorial dataset by month. CF-encoded time
+coordinates are decoded to DuckDB timestamps, so ordinary date functions work
+directly.</p>
+<p>Run <code>make generate_fixtures</code> first, then run this SQL from the repository root.
+The generated data are not included in this website.</p>
+<pre><code class="language-sql">SELECT date_trunc('month', time) AS month, AVG(air) AS mean_air
+FROM 'test/fixtures/xarray_tutorial/air_temperature.zarr'
+WHERE time &gt;= TIMESTAMP '2014-01-01'
+GROUP BY month ORDER BY month;
+</code></pre>
+<h2 id="public-precipitation-data">Public precipitation data<a class="headerlink" href="#public-precipitation-data" title="Permanent link">&para;</a></h2>
+<p>Read the public GPCP store directly over HTTPS. Select the precipitation table
+by its dimensions because the store also contains coordinate-bound arrays.
+This query needs network access, but no local dataset preparation. If the
+external endpoint is unavailable, the local example above still works.</p>
+<pre><code class="language-sql">SELECT time, latitude, longitude, precip
+FROM read_zarr(
+  'https://ncsa.osn.xsede.org/Pangeo/pangeo-forge/gpcp-feedstock/gpcp.zarr',
+  dims=['time','latitude','longitude']
+)
+LIMIT 10;
+</code></pre>
+<p>Both queries also appear in the <a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/README.md">repository quick start</a>.
+See the <a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/test/test_http_integration_real.py">real-data HTTP tests</a> for
+the GPCP checks and <a href="../../domains/#climate">tested scientific domains</a>
+for the broader climate and ocean coverage.</p>
+<h2 id="bring-your-own-questionsduckdb-zarr-for-the-answers">Bring your own questions.<br><span class="closing-answer">duckdb-zarr for the answers.</span><a class="headerlink" href="#bring-your-own-questionsduckdb-zarr-for-the-answers" title="Permanent link">&para;</a></h2>
+    <footer class="page-footer">
+      <a href="../../biology/">← Biology</a>
+      <a href="../geoscience/">Geoscience →</a>
+    </footer>
+  </main>
+  <aside class="page-toc"><nav aria-label="On this page"><p class="nav-heading">On this page</p><ul><li><a href="#duckdb-zarr-for-climate">duckdb-zarr for climate.</a><ul><li><a href="#monthly-mean-air-temperature">Monthly mean air temperature</a></li><li><a href="#public-precipitation-data">Public precipitation data</a></li><li><a href="#bring-your-own-questionsduckdb-zarr-for-the-answers">Bring your own questions.duckdb-zarr for the answers.</a></li></ul></li></ul></nav></aside>
+</div>
+</body>
+</html>

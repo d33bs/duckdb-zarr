@@ -1,0 +1,237 @@
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Query scientific Zarr arrays with DuckDB and SQL.">
+  <title>Scientific domains · duckdb-zarr documentation</title>
+  
+  <link rel="stylesheet" href="../site.css">
+  <script src="../site.js" data-site-root="../" data-search-url="../search/search_index.json" defer></script>
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="project-header">
+  <a class="wordmark" href="../"><img class="brand-logo" src="../images/logo.png" alt="" width="32" height="32">duckdb-zarr</a>
+  <nav class="project-links" aria-label="Project navigation">
+    <a href="../" aria-current="true">Documentation</a>
+    <a href="https://github.com/xqlsystems/duckdb-zarr">GitHub ↗</a>
+  </nav>
+  <div class="docs-tools">
+    <button type="button" class="guides-toggle" aria-expanded="false" aria-controls="guide-nav">Browse guides</button>
+    <form class="docs-search" role="search">
+      <label class="sr-only" for="docs-search-input">Search documentation</label>
+      <input id="docs-search-input" type="search" placeholder="Search the documentation…" autocomplete="off" aria-controls="search-results">
+      <div id="search-results" class="search-results" role="region" aria-label="Search results" aria-live="polite" hidden></div>
+    </form>
+  </div>
+</header>
+<div class="docs-layout">
+  <aside id="guide-nav" class="guide-nav">
+    <nav aria-label="Documentation guides">
+      <p class="nav-heading">In this guide</p>
+      <ul>
+  
+  <li>
+    <a href="..">Start here</a>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Field guides</span>
+    <ul>
+  
+  <li>
+    <a href="../biology/">Biology</a>
+    
+  </li>
+  
+  <li>
+    <a href="../examples/climate/">Climate</a>
+    
+  </li>
+  
+  <li>
+    <a href="../examples/geoscience/">Geoscience</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Formats</span>
+    <ul>
+  
+  <li>
+    <a href="../anndata/">AnnData</a>
+    
+  </li>
+  
+  <li>
+    <a href="../ome-zarr/">OME-Zarr</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Reference</span>
+    <ul>
+  
+  <li>
+    <a href="../design/">How it works</a>
+    
+  </li>
+  
+  <li>
+    <a href="./" aria-current="page">Scientific domains</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Development</span>
+    <ul>
+  
+  <li>
+    <a href="../website/">Documentation website</a>
+    
+  </li>
+  
+  <li>
+    <a href="../versioning/">Versioning</a>
+    
+  </li>
+  
+  <li>
+    <a href="../community-extension-release/">Release guide</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+</ul>
+    </nav>
+  </aside>
+  <main id="main-content" class="docs-content" tabindex="-1">
+    <p class="eyebrow">field guide</p>
+    <h1 id="tested-scientific-domains">Tested scientific domains<a class="headerlink" href="#tested-scientific-domains" title="Permanent link">&para;</a></h1>
+<p><code>duckdb-zarr</code> reads Zarr and xarray conventions rather than implementing
+domain-specific query engines. Domain coverage therefore means that the test
+suite includes representative data and queries from that community.</p>
+<p>The sections follow the field guide order: Biology,
+Climate, then Geoscience. Shared storage conventions are covered separately
+below.</p>
+<h2 id="biology">Biology<a class="headerlink" href="#biology" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Community</th>
+<th>Current test coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Annotated matrices / AnnData</td>
+<td>A synthetic cell-by-gene store with named observations and variables, categorical and nullable annotations, sparse CSR/CSC matrices, layers, embeddings, pairwise matrices, views, and direct-array reads (<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/test/sql/anndata.test">SQL tests</a>). The <a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/scripts/check_anndata_tables.py">comparison script</a> checks tables against <code>anndata.read_zarr</code> for three AnnData fixtures.</td>
+</tr>
+<tr>
+<td>Spatial biology / SpatialData tables</td>
+<td>A synthetic SpatialData-like store with nested AnnData objects, inherited observation names, a label-image-to-annotation join, and view mounting (<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/test/sql/spatialdata.test">SQL tests</a>). This does not establish comprehensive SpatialData support or test reading points and shapes from Parquet.</td>
+</tr>
+<tr>
+<td>Bioimaging</td>
+<td>An OME-Zarr v3 multichannel image with a nested label image, including recursive discovery, resolution-level selection, named image axes, and label queries.</td>
+</tr>
+</tbody>
+</table>
+<p>The <a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/test/test_anndata_edge_cases.py">AnnData edge-case tests</a> also check
+<code>raw/X</code> and <code>raw/var</code>, independently chunked nullable masks, and categorical
+ENUM width boundaries in Zarr v2/v3, both at the root and in nested tables.
+They run with <code>make test_debug</code> and <code>make test_release</code>.</p>
+<p>See the <a href="../biology/">Biology field guide</a> for the interactive
+walkthrough, <a href="../anndata/">Querying AnnData stores</a>, including its
+<a href="../anndata/#spatialdata-stores">SpatialData boundaries</a>, and
+<a href="../ome-zarr/">Querying OME-Zarr</a>.</p>
+<p><a id="climate-and-geoscience"></a></p>
+<h2 id="climate">Climate<a class="headerlink" href="#climate" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Community</th>
+<th>Current test coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Atmospheric and climate science</td>
+<td>Xarray air-temperature data, a synthetic ERA5-style multidimensional dataset, named coordinates, packed values, and dimension-group selection (<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/test/sql/era5_tables.test">ERA5-style SQL tests</a>).</td>
+</tr>
+<tr>
+<td>Ocean and climate science</td>
+<td>ERSST sea-surface temperature, including CF bounds and missing-value handling.</td>
+</tr>
+<tr>
+<td>Public precipitation data</td>
+<td>Network-gated GPCP tests cover remote metadata, coordinates, and compressed values. They skip when the public endpoint is unreachable (<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/test/test_http_integration_real.py">HTTP tests</a>).</td>
+</tr>
+</tbody>
+</table>
+<p>See the <a href="../examples/climate/">Climate field guide</a> for monthly temperature
+summaries and the public precipitation query.</p>
+<h2 id="geoscience">Geoscience<a class="headerlink" href="#geoscience" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Community</th>
+<th>Current test coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Geographic grids</td>
+<td>Latitude/longitude queries, spatial aggregation, and ranking the warmest grid locations in the air-temperature dataset (<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/test/sql/realistic_queries.test">realistic SQL tests</a>).</td>
+</tr>
+<tr>
+<td>Ocean regions</td>
+<td>Basin-mask arrays, including missing-value handling (<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/test/sql/read_zarr.test">reader SQL tests</a>).</td>
+</tr>
+</tbody>
+</table>
+<p>See the <a href="../examples/geoscience/">Geoscience field guide</a> for a public Landsat
+Zarr composite, calibrated red/NIR reflectance, and NDVI queries. This live-data
+walkthrough is separate from the automated fixture coverage above.</p>
+<p>The guide reads one coarse pyramid level; this is not comprehensive GeoZarr
+interoperability coverage. Pyramid conventions are not yet covered by fixtures.</p>
+<h2 id="general-xarrayzarr">General xarray/Zarr<a class="headerlink" href="#general-xarrayzarr" title="Permanent link">&para;</a></h2>
+<p>Synthetic Zarr v2 and v3 fixtures cover numeric types, sparse chunks, scalar
+coordinates, endianness, and compression. Nested-group tests cover
+<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/test/sql/datatree.test">xarray DataTree-style stores</a>, with separate groups
+and inherited coordinates checked for
+<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/test/test_datatree_compatibility.py">both Zarr versions</a>.</p>
+<h2 id="not-yet-represented">Not yet represented<a class="headerlink" href="#not-yet-represented" title="Permanent link">&para;</a></h2>
+<p>Astronomy does not yet have representative fixtures. Remote sensing is
+illustrated by the Landsat field guide, but likewise has no dedicated fixtures
+in the default test suite. Support claims should distinguish a verified
+walkthrough from systematic format and domain coverage.</p>
+    <footer class="page-footer">
+      <a href="../design/">← How it works</a>
+      <a href="../website/">Documentation website →</a>
+    </footer>
+  </main>
+  <aside class="page-toc"><nav aria-label="On this page"><p class="nav-heading">On this page</p><ul><li><a href="#tested-scientific-domains">Tested scientific domains</a><ul><li><a href="#biology">Biology</a></li><li><a href="#climate">Climate</a></li><li><a href="#geoscience">Geoscience</a></li><li><a href="#general-xarrayzarr">General xarray/Zarr</a></li><li><a href="#not-yet-represented">Not yet represented</a></li></ul></li></ul></nav></aside>
+</div>
+</body>
+</html>

@@ -1,0 +1,232 @@
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Query scientific Zarr arrays with DuckDB and SQL.">
+  <title>Documentation website · duckdb-zarr documentation</title>
+  
+  <link rel="stylesheet" href="../site.css">
+  <script src="../site.js" data-site-root="../" data-search-url="../search/search_index.json" defer></script>
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="project-header">
+  <a class="wordmark" href="../"><img class="brand-logo" src="../images/logo.png" alt="" width="32" height="32">duckdb-zarr</a>
+  <nav class="project-links" aria-label="Project navigation">
+    <a href="../" aria-current="true">Documentation</a>
+    <a href="https://github.com/xqlsystems/duckdb-zarr">GitHub ↗</a>
+  </nav>
+  <div class="docs-tools">
+    <button type="button" class="guides-toggle" aria-expanded="false" aria-controls="guide-nav">Browse guides</button>
+    <form class="docs-search" role="search">
+      <label class="sr-only" for="docs-search-input">Search documentation</label>
+      <input id="docs-search-input" type="search" placeholder="Search the documentation…" autocomplete="off" aria-controls="search-results">
+      <div id="search-results" class="search-results" role="region" aria-label="Search results" aria-live="polite" hidden></div>
+    </form>
+  </div>
+</header>
+<div class="docs-layout">
+  <aside id="guide-nav" class="guide-nav">
+    <nav aria-label="Documentation guides">
+      <p class="nav-heading">In this guide</p>
+      <ul>
+  
+  <li>
+    <a href="..">Start here</a>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Field guides</span>
+    <ul>
+  
+  <li>
+    <a href="../biology/">Biology</a>
+    
+  </li>
+  
+  <li>
+    <a href="../examples/climate/">Climate</a>
+    
+  </li>
+  
+  <li>
+    <a href="../examples/geoscience/">Geoscience</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Formats</span>
+    <ul>
+  
+  <li>
+    <a href="../anndata/">AnnData</a>
+    
+  </li>
+  
+  <li>
+    <a href="../ome-zarr/">OME-Zarr</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Reference</span>
+    <ul>
+  
+  <li>
+    <a href="../design/">How it works</a>
+    
+  </li>
+  
+  <li>
+    <a href="../domains/">Scientific domains</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Development</span>
+    <ul>
+  
+  <li>
+    <a href="./" aria-current="page">Documentation website</a>
+    
+  </li>
+  
+  <li>
+    <a href="../versioning/">Versioning</a>
+    
+  </li>
+  
+  <li>
+    <a href="../community-extension-release/">Release guide</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+</ul>
+    </nav>
+  </aside>
+  <main id="main-content" class="docs-content" tabindex="-1">
+    <p class="eyebrow">field guide</p>
+    <h1 id="documentation-website">Documentation website<a class="headerlink" href="#documentation-website" title="Permanent link">&para;</a></h1>
+<p>The website publishes the existing Markdown guides and the browser biology
+examples as one static site. The guide content does not need to be rewritten
+or maintained in a second format.</p>
+<h2 id="structure">Structure<a class="headerlink" href="#structure" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>/</code> — the documentation overview, rendered from <code>docs/README.md</code>.</li>
+<li><code>/anndata/</code> and <code>/ome-zarr/</code> — the existing biology guides.</li>
+<li><code>/examples/climate/</code> and <code>/examples/geoscience/</code> — the Markdown field guides.
+  There is no separate field-guide index page; use the direct sidebar links.</li>
+<li><code>/biology/</code> — the first example page: interactive single-cell and 3D images.
+  Its existing URL stays unchanged.</li>
+<li>The remaining guides stay in the sidebar, with search and section navigation.</li>
+</ul>
+<p>The documentation and examples share the green-and-cream palette, serif
+headings, wordmark, and top links: Documentation and GitHub.
+The published biology page also uses the same sidebar, search, and mobile
+Browse guides menu, with Biology marked as the active example.
+The examples also link directly to their corresponding format guides. Links
+remain relative, including when GitHub Pages hosts the whole site below a
+project prefix such as <code>/duckdb-zarr/</code>.</p>
+<h2 id="build-and-preview">Build and preview<a class="headerlink" href="#build-and-preview" title="Permanent link">&para;</a></h2>
+<p>Install the biology app's JS dependencies and obtain its matching WASM
+extension using the <a href="../biology/">biology setup instructions</a>.
+Then, from the repository root:</p>
+<pre><code class="language-sh">uv run scripts/build_docs.py
+python3 -m http.server 4178 --bind 127.0.0.1 --directory site
+</code></pre>
+<p>Open <code>http://127.0.0.1:4178/</code> for the docs, then choose <strong>Biology</strong> under the sidebar's <strong>Field guides</strong> heading.
+Use a different port if another preview is already listening on 4178.</p>
+<p>The build script carries a pinned MkDocs dependency, invokes the existing Vite
+build, and combines everything under ignored <code>site/</code>. It stages files only
+temporarily; it does not edit the source Markdown. It does not download or
+bundle scientific datasets. The biology app still fetches its original remote
+sources only when someone opens the interactive page.</p>
+<p>For biology, the builder stages <code>biology/index.md</code> using the compiled app's
+main content and asset links. Its <code>biology.html</code> template extends the shared
+<code>main.html</code>, so navigation comes from <code>mkdocs.yml</code> rather than a copied menu
+or an iframe. The standalone Vite build remains unchanged.</p>
+<p><code>npm run dev</code> inside <code>demos/biology</code> remains useful for editing that app alone.
+It is not the combined documentation preview, so its parent-documentation links
+require the combined site above.</p>
+<h2 id="updating-the-site">Updating the site<a class="headerlink" href="#updating-the-site" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Edit the existing <code>.md</code> guide files as usual.</li>
+<li>Change sidebar organization in <code>mkdocs.yml</code>.</li>
+<li>Change the thin site shell in <code>docs/_theme/</code>.</li>
+<li>Set <code>example_title: true</code> in a Markdown example's front matter to use the
+  same title typography and spacing as biology, with a green <code>title-accent</code>
+  span on the second line.</li>
+<li>Keep demo-only rendering and SQL in <code>demos/biology/</code>.</li>
+<li>Add future example pages under <code>docs/examples/</code> and add direct links to the
+  <strong>Field guides</strong> section in <code>mkdocs.yml</code>. The section heading is not a link.
+  Separately built interactive apps can keep their own URLs; only those apps
+  need additional build staging.</li>
+</ul>
+<p>The site-only link hook keeps Markdown links useful in both contexts: links to
+the demo README become links to the running examples, and links to source or
+test files outside <code>docs/</code> go to GitHub. Code examples are left untouched.</p>
+<h2 id="deployment-and-checks">Deployment and checks<a class="headerlink" href="#deployment-and-checks" title="Permanent link">&para;</a></h2>
+<p><code>.github/workflows/biology-demo-pages.yml</code> now publishes the entire <code>site/</code>
+artifact, not just the demo. Its display name is <strong>Documentation Pages</strong>. It
+reuses the checksum-pinned, browser-tested extension artifact from distribution
+run <code>40233921996</code>; the deploy job does not rebuild the Rust extension. GitHub Pages
+must use the GitHub Actions build method.</p>
+<p>The workflow runs for documentation/example changes on <code>main</code>, or by manual
+dispatch. The pinned artifact must still be available in the same repository;
+if it expires, deployment fails instead of falling back to an untested binary.
+The optional <code>run_id</code> input can point to another run, but its artifact must
+have the pinned name and the digest in <code>demos/biology/extension.sha256</code>.
+To adopt a new binary, browser-test it with the pinned DuckDB-Wasm package,
+then update the workflow's run ID, artifact name and checksum together.
+CI verifies the checksum and runs helper tests plus a real WASM-reader query
+against a synthetic format fixture before uploading the Pages artifact.
+A local build does not publish anything; changes still need to be reviewed
+and merged before the workflow can deploy them.</p>
+<p><code>--skip-demo-build</code> reuses <code>demos/biology/dist</code> and requires both its
+<code>index.html</code> and <code>zarr.duckdb_extension.wasm</code>. A copy of the extension under
+<code>public/</code> cannot repair an incomplete existing build.</p>
+<pre><code class="language-sh">uv run --no-project --with mkdocs==1.6.1 python -m unittest discover -s scripts -p test_docsite.py
+uv run scripts/build_docs.py
+node demos/biology/test/docsite.browser.mjs site --layout-only
+node demos/biology/test/docsite.browser.mjs site
+</code></pre>
+<p>The <code>--layout-only</code> check verifies identical sidebars, example-title styles,
+search and mobile menus without starting the biology query engine. It blocks
+only the app module, preserves its real compiled CSS/HTML, and is not a test
+of scientific queries or rendering. The full command without that flag still
+loads and checks the real datasets.</p>
+<p>The full browser check follows docs → individual field guides → live biology app → docs,
+exercises search and mobile navigation, checks generated internal links, and
+loads the real remote data under a GitHub Pages-style project prefix. It uses
+the existing Playwright installation (<code>npx playwright install chromium</code> from
+<code>demos/biology</code> if needed).</p>
+    <footer class="page-footer">
+      <a href="../domains/">← Scientific domains</a>
+      <a href="../versioning/">Versioning →</a>
+    </footer>
+  </main>
+  <aside class="page-toc"><nav aria-label="On this page"><p class="nav-heading">On this page</p><ul><li><a href="#documentation-website">Documentation website</a><ul><li><a href="#structure">Structure</a></li><li><a href="#build-and-preview">Build and preview</a></li><li><a href="#updating-the-site">Updating the site</a></li><li><a href="#deployment-and-checks">Deployment and checks</a></li></ul></li></ul></nav></aside>
+</div>
+</body>
+</html>

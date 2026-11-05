@@ -1,0 +1,305 @@
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Query scientific Zarr arrays with DuckDB and SQL.">
+  <title>duckdb-zarr documentation</title>
+  
+  <link rel="stylesheet" href="site.css">
+  <script src="site.js" data-site-root="./" data-search-url="search/search_index.json" defer></script>
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="project-header">
+  <a class="wordmark" href="./"><img class="brand-logo" src="images/logo.png" alt="" width="32" height="32">duckdb-zarr</a>
+  <nav class="project-links" aria-label="Project navigation">
+    <a href="./" aria-current="true">Documentation</a>
+    <a href="https://github.com/xqlsystems/duckdb-zarr">GitHub ↗</a>
+  </nav>
+  <div class="docs-tools">
+    <button type="button" class="guides-toggle" aria-expanded="false" aria-controls="guide-nav">Browse guides</button>
+    <form class="docs-search" role="search">
+      <label class="sr-only" for="docs-search-input">Search documentation</label>
+      <input id="docs-search-input" type="search" placeholder="Search the documentation…" autocomplete="off" aria-controls="search-results">
+      <div id="search-results" class="search-results" role="region" aria-label="Search results" aria-live="polite" hidden></div>
+    </form>
+  </div>
+</header>
+<div class="docs-layout">
+  <aside id="guide-nav" class="guide-nav">
+    <nav aria-label="Documentation guides">
+      <p class="nav-heading">In this guide</p>
+      <ul>
+  
+  <li>
+    <a href="." aria-current="page">Start here</a>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Field guides</span>
+    <ul>
+  
+  <li>
+    <a href="biology/">Biology</a>
+    
+  </li>
+  
+  <li>
+    <a href="examples/climate/">Climate</a>
+    
+  </li>
+  
+  <li>
+    <a href="examples/geoscience/">Geoscience</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Formats</span>
+    <ul>
+  
+  <li>
+    <a href="anndata/">AnnData</a>
+    
+  </li>
+  
+  <li>
+    <a href="ome-zarr/">OME-Zarr</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Reference</span>
+    <ul>
+  
+  <li>
+    <a href="design/">How it works</a>
+    
+  </li>
+  
+  <li>
+    <a href="domains/">Scientific domains</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Development</span>
+    <ul>
+  
+  <li>
+    <a href="website/">Documentation website</a>
+    
+  </li>
+  
+  <li>
+    <a href="versioning/">Versioning</a>
+    
+  </li>
+  
+  <li>
+    <a href="community-extension-release/">Release guide</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+</ul>
+    </nav>
+  </aside>
+  <main id="main-content" class="docs-content" tabindex="-1">
+    
+    <p><img class="homepage-logo" src="images/logo.png" alt="duckdb-zarr logo" width="240" height="240"></p>
+<h1 id="duckdb-zarr">duckdb-zarr<a class="headerlink" href="#duckdb-zarr" title="Permanent link">&para;</a></h1>
+<p>A DuckDB extension for querying Zarr-format scientific arrays with SQL.</p>
+<p>Read <a href="design/">How it works</a> for the array-to-table model and SQL reference.</p>
+<h2 id="what-it-does">What It Does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
+<p><strong>duckdb-zarr</strong> extends DuckDB with the ability to query Zarr arrays directly using SQL. <a href="https://zarr.dev/">Zarr</a> is a format for storing chunked, compressed N-dimensional arrays, widely used in scientific computing and big data applications—particularly in climate science, astronomy, genomics, and remote sensing.</p>
+<p>With this extension, you can:</p>
+<ul>
+<li>Query Zarr array metadata (dimensions, chunk structure, data type, attributes)</li>
+<li>Read array data directly into DuckDB tables</li>
+<li>Combine Zarr data with other data sources using standard SQL joins</li>
+</ul>
+<h3 id="the-pivot-concept">The Pivot Concept<a class="headerlink" href="#the-pivot-concept" title="Permanent link">&para;</a></h3>
+<p>Zarr arrays are n-dimensional gridded data (like satellite imagery, climate model outputs, or sensor readings). This extension "pivots" these multi-dimensional arrays into relational tables—treating each cell in the array as a row, with coordinates as columns. This lets you use familiar SQL to query data that would otherwise require specialized array-processing tools.</p>
+<h3 id="thinking-in-arrays-and-sql">Thinking in arrays and SQL<a class="headerlink" href="#thinking-in-arrays-and-sql" title="Permanent link">&para;</a></h3>
+<p>The array-to-table approach explored by
+<a href="https://github.com/xqlsystems/xarray-sql">xarray-sql</a> provides a useful way to
+think about these queries:</p>
+<ul>
+<li><strong>Coordinates become columns:</strong> a dense array has one row per coordinate
+  combination, with measurements as value columns.</li>
+<li><strong><code>WHERE</code> selects a region:</strong> filter by time, location, channel, or depth.</li>
+<li><strong><code>GROUP BY</code> chooses the dimensions you keep:</strong> grouping by latitude and
+  longitude while averaging a measurement reduces over time.</li>
+<li><strong>Compatible variables share a table:</strong> variables with matching dimensions
+  and shape in one Zarr group can be queried together. Join separate tables
+  explicitly.</li>
+</ul>
+<p>For example, average air temperature over the selected year at each location.
+After loading the extension, run this from the repository root with the tutorial
+fixtures generated (<code>make generate_fixtures</code>):</p>
+<pre><code class="language-sql">SELECT
+  lat,
+  lon,
+  AVG(air) AS mean_air
+FROM read_zarr('test/fixtures/xarray_tutorial/air_temperature.zarr')
+WHERE time &gt;= TIMESTAMP '2014-01-01'
+  AND time &lt; TIMESTAMP '2015-01-01'
+GROUP BY lat, lon;
+</code></pre>
+<p>These are shared principles, not an xarray-sql API compatibility layer:
+duckdb-zarr reads Zarr directly inside DuckDB, without a Python layer. Sparse
+AnnData tables can contain only stored entries rather than every coordinate
+combination. A <code>WHERE</code> filter does not by itself guarantee that chunks are skipped.</p>
+<h3 id="why-this-is-useful">Why This Is Useful<a class="headerlink" href="#why-this-is-useful" title="Permanent link">&para;</a></h3>
+<p>Scientific datasets are often stored in Zarr format because it handles multi-terabyte to petabyte-scale arrays efficiently through chunking and compression. However, traditional SQL databases don't understand Zarr. This extension bridges that gap—allowing data scientists and engineers to:</p>
+<ul>
+<li>Query Zarr metadata without loading entire arrays into memory</li>
+<li>Perform SQL analytics on scientific data alongside structured data</li>
+<li>Use DuckDB's fast SQL engine to filter and aggregate chunked array data</li>
+<li>Integrate Zarr data pipelines with existing SQL-based workflows</li>
+</ul>
+<p>This project is related to <a href="https://github.com/alxmrs/xarray-sql">xarray-sql</a> and <a href="https://github.com/alxmrs/zarr-datafusion">zarr-datafusion</a>, which offer related SQL interfaces to scientific arrays.</p>
+<h2 id="field-guides">Field guides<a class="headerlink" href="#field-guides" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="biology/">Biology</a> — interactive single-cell and 3D image queries.</li>
+<li><a href="examples/climate/">Climate</a> — temperature summaries and precipitation.</li>
+<li><a href="examples/geoscience/">Geoscience</a> — Landsat composites and vegetation indices.</li>
+</ul>
+<h2 id="guides-by-domain">Guides by domain<a class="headerlink" href="#guides-by-domain" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Biology:</strong> <a href="anndata/">AnnData annotated matrices</a>, with a cell-by-gene
+  example and a section on AnnData tables in SpatialData stores;
+  <a href="ome-zarr/">OME-Zarr bioimages</a>. Try the single-page
+  <a href="biology/">duckdb-zarr for biologists browser example</a>:
+  editable SQL over a real single-cell RNA-seq UMAP and a rotatable 3D
+  fluorescence volume, both backed by a Zarr-URL box you can repoint at your
+  own S3/HTTPS store.</li>
+<li><strong>Climate and geoscience:</strong> <a href="#basic-usage">gridded-data quick start</a> below;
+  <a href="domains/#climate-and-geoscience">tested atmospheric and ocean datasets</a>.</li>
+<li><strong>General reference:</strong> <a href="design/">How duckdb-zarr works</a>, including how
+  <a href="design/#from-arrays-to-tables">arrays become tables</a>, the
+  <a href="design/#the-sql-interface">SQL interface</a>,
+  <a href="design/#known-limits">known limits</a>, and <a href="design/#roadmap">roadmap</a>;
+  <a href="domains/">tested scientific domains</a>.</li>
+</ul>
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<h3 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h3>
+<p><strong>Pre-built binaries</strong>: not published yet.</p>
+<p><strong>Build from source</strong> (see Development Setup below)</p>
+<h3 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sql">-- Load the extension
+LOAD 'zarr';
+
+-- Read metadata from a Zarr store (a local path or a URL)
+SELECT * FROM read_zarr_metadata('test/fixtures/xarray_tutorial/float_baseline.zarr');
+
+-- Read a store as a table
+SELECT * FROM read_zarr('test/fixtures/xarray_tutorial/float_baseline.zarr');
+
+-- Filter with plain SQL on the coordinate columns, dates included
+SELECT time, lat, lon, air
+FROM read_zarr('test/fixtures/xarray_tutorial/air_temperature.zarr')
+WHERE lat &gt; 0 AND time &gt;= TIMESTAMP '2014-06-01';
+</code></pre>
+<p>Time coordinates stored the CF way — a number plus a <code>units</code> attr like
+<code>"hours since 1800-01-01"</code> — are decoded to <code>TIMESTAMP</code>, which is why the query
+above can compare <code>time</code> against a date literal. Pass <code>decode_times := false</code> if
+you want the raw on-disk offsets instead.</p>
+<p>For a small bioimage walkthrough, see <a href="ome-zarr/">Querying OME-Zarr</a>.
+For annotated matrices written by AnnData, see <a href="anndata/">Querying AnnData stores</a>.
+For the domains covered by the current test suite, see
+<a href="domains/">Tested scientific domains</a>.</p>
+<h3 id="nested-groups-and-datatree-stores">Nested groups and DataTree stores<a class="headerlink" href="#nested-groups-and-datatree-stores" title="Permanent link">&para;</a></h3>
+<p>A nested store has one set of tables per Zarr group. <code>read_zarr(store)</code> reads
+only the root group; it does not combine sibling groups, even when their
+arrays have identical names, dimensions and shapes. This is a change from
+older releases, which pooled arrays across the store.</p>
+<p>Discover the tables first, then select a group and its table:</p>
+<pre><code class="language-sql">SELECT group_path, schema_name, table_name, dims, data_vars
+FROM read_zarr_tables('test/fixtures/xarray_tutorial/datatree.zarr')
+ORDER BY group_path;
+
+SELECT x, y, foo
+FROM read_zarr('test/fixtures/xarray_tutorial/datatree.zarr',
+  group_path := 'simulation/fine', table_name := 'x_y')
+ORDER BY x, y;
+</code></pre>
+<p>Coordinates are inherited from ancestor groups, so the second query uses the
+root's <code>x</code> values. Misaligned groups have a NULL <code>table_name</code> in the catalog
+and cannot be read as a table. <code>dims := ['x', 'y']</code> is an alternative to
+<code>table_name := 'x_y'</code>; do not pass both. Catalog columns such as <code>dims</code> and
+<code>data_vars</code> are SQL lists, not JSON strings. <code>read_zarr_groups</code> remains an
+alias of <code>read_zarr_tables</code>.</p>
+<p>For arrays without dimension names, select one explicitly with <code>array_path :=</code>.
+Its unnamed axes become integer-position columns <code>dim_0</code>, <code>dim_1</code>, and so on,
+or pass <code>dims :=</code> to label those positions yourself for this query. Group
+tables omit these arrays rather than joining unrelated data by position.
+AnnData has its own axis naming and decoded tables; see the
+<a href="anndata/">AnnData guide</a>. See <a href="design/#arrays-without-dimension-names">arrays without dimension
+names</a> for the full <code>dims :=</code> rules.</p>
+<p>To mount all readable tables as views, call <code>read_zarr_views(store, database)</code>
+and execute the returned SQL statements on the same connection. It returns
+SQL; it does not execute the statements itself. See the
+<a href="design/#workaround-generate-the-views-with-read_zarr_views">Python and CLI mounting recipes</a>.</p>
+<h3 id="ome-zarr-features">OME-Zarr Features<a class="headerlink" href="#ome-zarr-features" title="Permanent link">&para;</a></h3>
+<p>OME-Zarr stores often contain nested arrays for resolution levels and labels.
+Use metadata discovery first to see the available store-relative paths:</p>
+<pre><code class="language-sql">SELECT name, dims, shape, dtype
+FROM read_zarr_metadata('test/fixtures/bioimage/ome_zarr/synthetic_multichannel.ome.zarr');
+</code></pre>
+<p>Then pass <code>array_path=</code> when you want a specific image or label array:</p>
+<pre><code class="language-sql">SELECT c, AVG(value) AS mean_intensity
+FROM read_zarr('test/fixtures/bioimage/ome_zarr/synthetic_multichannel.ome.zarr', array_path='0')
+GROUP BY c;
+
+SELECT value AS label, COUNT(*) AS pixels
+FROM read_zarr('test/fixtures/bioimage/ome_zarr/synthetic_multichannel.ome.zarr', array_path='labels/nuclei/0')
+WHERE value &gt; 0
+GROUP BY label;
+</code></pre>
+<p><code>array_path</code> is optional for simple stores where the reader can infer a single
+compatible array group. It becomes useful for multiscale images, nested labels,
+or stores with multiple incompatible array shapes.</p>
+<h2 id="development-setup">Development Setup<a class="headerlink" href="#development-setup" title="Permanent link">&para;</a></h2>
+<pre><code class="language-shell">make configure
+make debug
+duckdb -unsigned # run the extension
+make test_debug # testing
+make test_release # testing the release build
+</code></pre>
+<h3 id="related-projects">Related Projects<a class="headerlink" href="#related-projects" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="https://github.com/alxmrs/xarray-sql">xarray-sql</a> — xarray integration for DuckDB</li>
+<li><a href="https://github.com/alxmrs/zarr-datafusion">zarr-datafusion</a> — Zarr support for DataFusion</li>
+<li><a href="https://github.com/duckdb/duckdb">DuckDB</a> — In-process SQL OLAP database</li>
+</ul>
+    <footer class="page-footer">
+      
+      <a href="biology/">Biology →</a>
+    </footer>
+  </main>
+  <aside class="page-toc"><nav aria-label="On this page"><p class="nav-heading">On this page</p><ul><li><a href="#duckdb-zarr">duckdb-zarr</a><ul><li><a href="#what-it-does">What It Does</a><ul><li><a href="#the-pivot-concept">The Pivot Concept</a></li><li><a href="#thinking-in-arrays-and-sql">Thinking in arrays and SQL</a></li><li><a href="#why-this-is-useful">Why This Is Useful</a></li></ul></li><li><a href="#field-guides">Field guides</a></li><li><a href="#guides-by-domain">Guides by domain</a></li><li><a href="#quick-start">Quick Start</a><ul><li><a href="#installation">Installation</a></li><li><a href="#basic-usage">Basic Usage</a></li><li><a href="#nested-groups-and-datatree-stores">Nested groups and DataTree stores</a></li><li><a href="#ome-zarr-features">OME-Zarr Features</a></li></ul></li><li><a href="#development-setup">Development Setup</a><ul><li><a href="#related-projects">Related Projects</a></li></ul></li></ul></li></ul></nav></aside>
+</div>
+</body>
+</html>

@@ -1,0 +1,260 @@
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Query scientific Zarr arrays with DuckDB and SQL.">
+  <title>Versioning · duckdb-zarr documentation</title>
+  
+  <link rel="stylesheet" href="../site.css">
+  <script src="../site.js" data-site-root="../" data-search-url="../search/search_index.json" defer></script>
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="project-header">
+  <a class="wordmark" href="../"><img class="brand-logo" src="../images/logo.png" alt="" width="32" height="32">duckdb-zarr</a>
+  <nav class="project-links" aria-label="Project navigation">
+    <a href="../" aria-current="true">Documentation</a>
+    <a href="https://github.com/xqlsystems/duckdb-zarr">GitHub ↗</a>
+  </nav>
+  <div class="docs-tools">
+    <button type="button" class="guides-toggle" aria-expanded="false" aria-controls="guide-nav">Browse guides</button>
+    <form class="docs-search" role="search">
+      <label class="sr-only" for="docs-search-input">Search documentation</label>
+      <input id="docs-search-input" type="search" placeholder="Search the documentation…" autocomplete="off" aria-controls="search-results">
+      <div id="search-results" class="search-results" role="region" aria-label="Search results" aria-live="polite" hidden></div>
+    </form>
+  </div>
+</header>
+<div class="docs-layout">
+  <aside id="guide-nav" class="guide-nav">
+    <nav aria-label="Documentation guides">
+      <p class="nav-heading">In this guide</p>
+      <ul>
+  
+  <li>
+    <a href="..">Start here</a>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Field guides</span>
+    <ul>
+  
+  <li>
+    <a href="../biology/">Biology</a>
+    
+  </li>
+  
+  <li>
+    <a href="../examples/climate/">Climate</a>
+    
+  </li>
+  
+  <li>
+    <a href="../examples/geoscience/">Geoscience</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Formats</span>
+    <ul>
+  
+  <li>
+    <a href="../anndata/">AnnData</a>
+    
+  </li>
+  
+  <li>
+    <a href="../ome-zarr/">OME-Zarr</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Reference</span>
+    <ul>
+  
+  <li>
+    <a href="../design/">How it works</a>
+    
+  </li>
+  
+  <li>
+    <a href="../domains/">Scientific domains</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Development</span>
+    <ul>
+  
+  <li>
+    <a href="../website/">Documentation website</a>
+    
+  </li>
+  
+  <li>
+    <a href="./" aria-current="page">Versioning</a>
+    
+  </li>
+  
+  <li>
+    <a href="../community-extension-release/">Release guide</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+</ul>
+    </nav>
+  </aside>
+  <main id="main-content" class="docs-content" tabindex="-1">
+    <p class="eyebrow">field guide</p>
+    <h1 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h1>
+<p><code>duckdb-zarr</code> follows a <strong>dynamic versioning</strong> model: the git release tag is
+the source of truth, and the version strings checked into the repository are
+development placeholders that get synced from the tag at release time. This
+mirrors the approach used by the sibling <a href="https://github.com/d33bs/arrow-lint"><code>arrow-lint</code></a> and
+<a href="https://github.com/d33bs/zarr-lint"><code>zarr-lint</code></a> projects.</p>
+<h2 id="two-independent-version-concepts">Two independent version concepts<a class="headerlink" href="#two-independent-version-concepts" title="Permanent link">&para;</a></h2>
+<p>This project has two version numbers that are easy to conflate:</p>
+<ol>
+<li><strong>The DuckDB extension's own <code>extension_version</code> metadata</strong> — stamped into
+   the compiled <code>.duckdb_extension</code> binary and reported by DuckDB at runtime.</li>
+<li><strong>The <code>Cargo.toml</code> / <code>pyproject.toml</code> / <code>description.yml</code> version trio</strong> —
+   used for the community-extension descriptor and human-facing docs.</li>
+</ol>
+<p>They are synced independently, by two different mechanisms.</p>
+<h3 id="the-extensions-runtime-version-already-reads-the-git-tag">The extension's runtime version already reads the git tag<a class="headerlink" href="#the-extensions-runtime-version-already-reads-the-git-tag" title="Permanent link">&para;</a></h3>
+<p>DuckDB's own build tooling (<code>extension-ci-tools/scripts/configure_helper.py</code>,
+vendored as a submodule) autodetects the extension version from git and
+writes it to <code>configure/extension_version.txt</code>:</p>
+<pre><code class="language-python">git_tag = subprocess.getoutput(&quot;git tag --points-at HEAD&quot;)
+EXTENSION_VERSION = git_tag or subprocess.getoutput(&quot;git --no-pager log -1 --format=%h&quot;)
+</code></pre>
+<p>The <code>Makefile</code> stamps that file's contents into the compiled binary's
+metadata (<code>-evf configure/extension_version.txt</code>). This already works today,
+with no code in this repository involved — every build, including the one
+<code>duckdb/community-extensions</code> performs against this repo's tagged <code>ref</code>, is
+tied to the git tag automatically:</p>
+<pre><code class="language-sql">LOAD zarr;
+SELECT extension_version FROM duckdb_extensions() WHERE extension_name = 'zarr';
+</code></pre>
+<p><code>configure/</code> is gitignored and rebuilt by <code>make configure</code>, so there is
+nothing to keep in sync by hand here — this is why the extension itself never
+needed a Rust source change to "read the git tag": <code>duckdb_extensions()</code> is
+the read path, and <code>zarrs</code>/the crate's own <code>Cargo.toml</code> <code>version</code> field never
+enters the picture. (This differs from a typical <code>cargo install</code>able binary,
+where <code>env!("CARGO_PKG_VERSION")</code> really would end up in the shipped artifact
+— it does not here, because the extension is loaded via DuckDB's C API, not
+run as a standalone binary carrying its own <code>--version</code>.)</p>
+<h2 id="source-of-truth-for-the-descriptordocs-trio">Source of truth for the descriptor/docs trio<a class="headerlink" href="#source-of-truth-for-the-descriptordocs-trio" title="Permanent link">&para;</a></h2>
+<p>The Cargo, Python, and community-descriptor version fields are a separate,
+purely cosmetic concern: they must agree with each other so the rendered
+<code>description.yml</code> submitted to <code>duckdb/community-extensions</code> and the
+generated docs are consistent. The committed values are <strong>development
+placeholders</strong> — not expected to track the latest release:</p>
+<pre><code class="language-toml"># Cargo.toml
+[package]
+version = &quot;0.1.3&quot;
+</code></pre>
+<pre><code class="language-toml"># pyproject.toml
+[project]
+version = &quot;0.1.3&quot;
+</code></pre>
+<pre><code class="language-yaml"># description.yml
+extension:
+  version: 0.1.3
+</code></pre>
+<h2 id="verifying-consistency">Verifying consistency<a class="headerlink" href="#verifying-consistency" title="Permanent link">&para;</a></h2>
+<p><a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/scripts/check_release_ready.py"><code>scripts/check_release_ready.py</code></a> runs on
+every PR (<code>Release metadata consistency</code> job in
+<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/.github/workflows/rust-quality.yml"><code>.github/workflows/rust-quality.yml</code></a>)
+and fails if these three placeholders drift apart from each other. It does
+<strong>not</strong> check them against any git tag — that's not the release gate, since
+the placeholder is never expected to already equal the next tag.</p>
+<h2 id="release-tags">Release tags<a class="headerlink" href="#release-tags" title="Permanent link">&para;</a></h2>
+<p>Release tags use a <code>v</code> prefix; the package version omits it:</p>
+<table>
+<thead>
+<tr>
+<th>Git tag</th>
+<th>Package version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>v0.1.4</code></td>
+<td><code>0.1.4</code></td>
+</tr>
+</tbody>
+</table>
+<p>At release time,
+<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/scripts/sync_release_version.py"><code>scripts/sync_release_version.py</code></a>
+rewrites <code>Cargo.toml</code>, <code>pyproject.toml</code>, <code>description.yml</code>, and the <code>zarr</code>
+package entry in <code>Cargo.lock</code> to match the tag, inside the release workflow's
+CI checkout — <strong>no commit is made to <code>main</code> (or any branch)</strong>:</p>
+<pre><code class="language-console">$ python3 scripts/sync_release_version.py v0.1.4
+tag=v0.1.4 version=0.1.4: synced Cargo.toml, pyproject.toml, description.yml, Cargo.lock
+
+$ python3 scripts/sync_release_version.py v0.1.4 --check
+OK: tag v0.1.4 matches all version sites.
+</code></pre>
+<p>This is an <strong>ephemeral edit</strong>: it only runs inside
+<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/.github/workflows/community-release.yml"><code>.github/workflows/community-release.yml</code></a>'s
+CI checkout, right before rendering the community descriptor, and is never
+committed. The repository keeps its development-placeholder version between
+releases — publishing a release no longer requires a manual <code>Cargo.toml</code> /
+<code>pyproject.toml</code> / <code>description.yml</code> bump beforehand, only a <code>CHANGELOG.md</code>
+entry (still maintained by hand; see
+<a href="https://github.com/xqlsystems/duckdb-zarr/blob/main/CHANGELOG.md"><code>CHANGELOG.md</code></a>) and the tag itself.</p>
+<p>Committing the synced version back to <code>main</code> was considered and rejected: it
+would require the release workflow to push a commit (or open a PR) after
+every tag, adding a second source of truth that could drift from the tag it
+was derived from, plus bot-authored commits/PRs to review on every release.
+Leaving the sync ephemeral keeps the git tag as the single source of truth
+and matches the pattern already proven in <code>arrow-lint</code>/<code>zarr-lint</code>.</p>
+<p>If a <code>workflow_dispatch</code> run targets a raw commit hash instead of a tag (the
+<code>description.yml</code> <code>repo.ref</code> "publish an older/manual ref" path), there is no
+tag to sync from, so the sync step is skipped and the checked-in placeholder
+is rendered as-is — the same behavior this workflow had before dynamic
+versioning existed.</p>
+<h2 id="why-not-release-plz">Why not release-plz?<a class="headerlink" href="#why-not-release-plz" title="Permanent link">&para;</a></h2>
+<p><a href="https://release-plz.dev/">release-plz</a> automates conventional-commit-driven
+version bumps, changelog generation, and crates.io publishing via release
+PRs. It was considered for this issue but doesn't fit <code>duckdb-zarr</code>: this
+crate is never published to crates.io (it's a <code>cdylib</code> C API extension, not a
+library), its DuckDB engine test pin and C API compatibility floor are managed
+separately (see
+<a href="../community-extension-release/#duckdb-version-policy"><code>docs/community-extension-release.md</code></a>),
+and the three-file descriptor trio it would still need a custom step for is
+exactly what <code>sync_release_version.py</code> already handles. The
+placeholder-plus-tag-sync pattern from <code>arrow-lint</code>/<code>zarr-lint</code> covers the
+same need with less new surface area and matches the pattern already proven
+in this maintainer's other projects.</p>
+    <footer class="page-footer">
+      <a href="../website/">← Documentation website</a>
+      <a href="../community-extension-release/">Release guide →</a>
+    </footer>
+  </main>
+  <aside class="page-toc"><nav aria-label="On this page"><p class="nav-heading">On this page</p><ul><li><a href="#versioning">Versioning</a><ul><li><a href="#two-independent-version-concepts">Two independent version concepts</a><ul><li><a href="#the-extensions-runtime-version-already-reads-the-git-tag">The extension's runtime version already reads the git tag</a></li></ul></li><li><a href="#source-of-truth-for-the-descriptordocs-trio">Source of truth for the descriptor/docs trio</a></li><li><a href="#verifying-consistency">Verifying consistency</a></li><li><a href="#release-tags">Release tags</a></li><li><a href="#why-not-release-plz">Why not release-plz?</a></li></ul></li></ul></nav></aside>
+</div>
+</body>
+</html>

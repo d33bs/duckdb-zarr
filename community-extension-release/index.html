@@ -1,0 +1,317 @@
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Query scientific Zarr arrays with DuckDB and SQL.">
+  <title>Release guide · duckdb-zarr documentation</title>
+  
+  <link rel="stylesheet" href="../site.css">
+  <script src="../site.js" data-site-root="../" data-search-url="../search/search_index.json" defer></script>
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="project-header">
+  <a class="wordmark" href="../"><img class="brand-logo" src="../images/logo.png" alt="" width="32" height="32">duckdb-zarr</a>
+  <nav class="project-links" aria-label="Project navigation">
+    <a href="../" aria-current="true">Documentation</a>
+    <a href="https://github.com/xqlsystems/duckdb-zarr">GitHub ↗</a>
+  </nav>
+  <div class="docs-tools">
+    <button type="button" class="guides-toggle" aria-expanded="false" aria-controls="guide-nav">Browse guides</button>
+    <form class="docs-search" role="search">
+      <label class="sr-only" for="docs-search-input">Search documentation</label>
+      <input id="docs-search-input" type="search" placeholder="Search the documentation…" autocomplete="off" aria-controls="search-results">
+      <div id="search-results" class="search-results" role="region" aria-label="Search results" aria-live="polite" hidden></div>
+    </form>
+  </div>
+</header>
+<div class="docs-layout">
+  <aside id="guide-nav" class="guide-nav">
+    <nav aria-label="Documentation guides">
+      <p class="nav-heading">In this guide</p>
+      <ul>
+  
+  <li>
+    <a href="..">Start here</a>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Field guides</span>
+    <ul>
+  
+  <li>
+    <a href="../biology/">Biology</a>
+    
+  </li>
+  
+  <li>
+    <a href="../examples/climate/">Climate</a>
+    
+  </li>
+  
+  <li>
+    <a href="../examples/geoscience/">Geoscience</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Formats</span>
+    <ul>
+  
+  <li>
+    <a href="../anndata/">AnnData</a>
+    
+  </li>
+  
+  <li>
+    <a href="../ome-zarr/">OME-Zarr</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Reference</span>
+    <ul>
+  
+  <li>
+    <a href="../design/">How it works</a>
+    
+  </li>
+  
+  <li>
+    <a href="../domains/">Scientific domains</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Development</span>
+    <ul>
+  
+  <li>
+    <a href="../website/">Documentation website</a>
+    
+  </li>
+  
+  <li>
+    <a href="../versioning/">Versioning</a>
+    
+  </li>
+  
+  <li>
+    <a href="./" aria-current="page">Release guide</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+</ul>
+    </nav>
+  </aside>
+  <main id="main-content" class="docs-content" tabindex="-1">
+    <p class="eyebrow">field guide</p>
+    <h1 id="community-extension-release">Community Extension Release<a class="headerlink" href="#community-extension-release" title="Permanent link">&para;</a></h1>
+<p>This project is set up to publish through DuckDB's community extension repository.
+DuckDB's process is descriptor-driven: submit a PR to <code>duckdb/community-extensions</code>
+with this repository's <code>description.yml</code>, and the community repository builds it
+with the same <code>extension-ci-tools</code> distribution workflow used here.</p>
+<h2 id="local-release-gate">Local Release Gate<a class="headerlink" href="#local-release-gate" title="Permanent link">&para;</a></h2>
+<p>Run the local checks before opening the community PR:</p>
+<pre><code class="language-sh">make release-check
+make test_release
+</code></pre>
+<p><code>make release-check</code> verifies the release-critical metadata that is easy to drift
+in a Rust C API extension:</p>
+<ul>
+<li><code>Makefile</code> <code>TARGET_DUCKDB_VERSION</code></li>
+<li><code>Cargo.toml</code> exact <code>duckdb</code> crate pin</li>
+<li><code>description.yml</code> <code>language</code>, <code>build</code>, <code>requires_toolchains</code>, and excluded
+  platforms</li>
+<li><code>Cargo.toml</code> / <code>pyproject.toml</code> / <code>description.yml</code> development-placeholder
+  versions agreeing with each other (see
+  <a href="../versioning/">docs/versioning.md</a> — this does not check them against any
+  git tag; that sync happens automatically at release time)</li>
+<li>that <code>MainDistributionPipeline.yml</code> resolves <code>duckdb_version</code> from the
+  Makefile pin at build time rather than carrying its own literal (see
+  <a href="#duckdb-version-policy">DuckDB Version Policy</a>)</li>
+</ul>
+<p>For the final community PR, also run:</p>
+<pre><code class="language-sh">python3 scripts/check_release_ready.py --strict-community-ref
+</code></pre>
+<p>That strict mode fails until <code>description.yml</code> <code>repo.ref</code> is an immutable release
+tag such as <code>v0.1.0</code> or a 40-character commit hash. Do not submit <code>ref: main</code>.</p>
+<p>For release automation, leave the checked-in descriptor at <code>ref: main</code> and
+render the community descriptor for a tag:</p>
+<pre><code class="language-sh">make render-community-descriptor REF=v0.1.0
+</code></pre>
+<p>The rendered file is written to
+<code>build/community-extensions/extensions/zarr/description.yml</code> with
+<code>repo.ref</code> set to the release tag.</p>
+<h2 id="github-release-automation">GitHub Release Automation<a class="headerlink" href="#github-release-automation" title="Permanent link">&para;</a></h2>
+<p>Publishing a GitHub Release runs <code>.github/workflows/community-release.yml</code>.
+That workflow:</p>
+<ol>
+<li>Renders a community descriptor for the release tag.</li>
+<li>Validates the generated descriptor in strict mode.</li>
+<li>Uploads the descriptor as a workflow artifact.</li>
+</ol>
+<p>The workflow intentionally does not store or use a cross-repository token. A
+maintainer downloads the artifact and opens the PR to
+<code>duckdb/community-extensions</code> manually. This keeps release automation read-only
+inside this repository while still making the submitted descriptor reproducible.</p>
+<p>Running the workflow via <strong>Run workflow</strong> (workflow_dispatch) also accepts an
+optional <code>ref_next</code> input. Supply the commit built for the upcoming DuckDB
+version and it is emitted as <code>repo.ref_next</code> in the rendered descriptor — see
+<a href="#stable-vs-current-duckdb-main">Stable vs. Current DuckDB Main</a>.</p>
+<h2 id="staying-current-with-duckdb-releases">Staying Current With DuckDB Releases<a class="headerlink" href="#staying-current-with-duckdb-releases" title="Permanent link">&para;</a></h2>
+<p>The native adapter uses DuckDB's frozen v1.5.6 C API (see
+<a href="#duckdb-version-policy">DuckDB Version Policy</a>). A version bump no longer
+necessarily requires a different binary, but every supported engine still needs
+build and query tests. Three pieces of automation support that process:</p>
+<ul>
+<li><strong>CI guard</strong> — the <code>Release metadata consistency</code> job in
+  <code>.github/workflows/rust-quality.yml</code> runs <code>scripts/check_release_ready.py</code> on
+  every PR, so the DuckDB version pins can never merge out of sync.</li>
+<li><strong><code>DuckDB Version Drift</code></strong> (<code>.github/workflows/duckdb-version-drift.yml</code>) runs
+  <strong>daily</strong>. Within the current minor line it opens a <code>chore/bump-duckdb-*</code> PR
+  as soon as pip <code>duckdb</code> and the matching <code>duckdb</code> crate publish a new patch.
+  When a new <strong>minor or major</strong> DuckDB line appears (e.g. <code>1.5.x → 1.6.0</code>) it
+  opens a <code>duckdb-major-bump</code> tracking issue instead, because that is a manual
+  migration (new CI-tools codename branch, possible source changes).</li>
+<li><strong><code>ref_next</code></strong> lets you pre-stage the next line so there is <em>no</em> gap at all —
+  covered below.</li>
+</ul>
+<p>The maintainer still cuts the release and opens the community PR (a deliberate
+choice — see above), but the source is kept release-ready automatically.</p>
+<h2 id="descriptor-notes">Descriptor Notes<a class="headerlink" href="#descriptor-notes" title="Permanent link">&para;</a></h2>
+<p>The descriptor intentionally marks this as a Rust cargo extension and requests
+the extra toolchains that the community CI must install:</p>
+<pre><code class="language-yaml">extension:
+  language: Rust
+  build: cargo
+  requires_toolchains: &quot;rust;python3&quot;
+</code></pre>
+<p>The descriptor excludes only <code>linux_amd64_musl</code>. The local distribution workflow
+uses the same exclusion set. The <code>wasm_mvp</code>, <code>wasm_eh</code>, and <code>wasm_threads</code>
+platforms are built by CI (the wasm matrix has no test step — it builds and
+uploads artifacts only); re-add one to the exclusions if its build stops
+passing.</p>
+<h2 id="submission-steps">Submission Steps<a class="headerlink" href="#submission-steps" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Ensure <code>main</code> is green for <code>Main Extension Distribution Pipeline</code> and
+   <code>Rust quality</code>.</li>
+<li>Update <code>CHANGELOG.md</code> (still manual). Do <strong>not</strong> bump <code>Cargo.toml</code>,
+   <code>pyproject.toml</code>, or <code>description.yml</code> — they keep a development-placeholder
+   version that <code>scripts/sync_release_version.py</code> syncs from the release tag
+   automatically inside <code>community-release.yml</code>; see
+   <a href="../versioning/">docs/versioning.md</a>.</li>
+<li>Create and publish a GitHub Release with a tag matching the project version,
+   such as <code>v0.1.0</code>.</li>
+<li>Download the validated descriptor artifact from the <code>Community Extension
+   Release</code> workflow.</li>
+<li>Open a PR against <code>duckdb/community-extensions</code> adding or updating
+   <code>extensions/zarr/description.yml</code> with that artifact.</li>
+</ol>
+<p>After the PR is merged and built by DuckDB's community infrastructure, users can
+install with:</p>
+<pre><code class="language-sql">INSTALL zarr FROM community;
+LOAD zarr;
+</code></pre>
+<h2 id="duckdb-version-policy">DuckDB Version Policy<a class="headerlink" href="#duckdb-version-policy" title="Permanent link">&para;</a></h2>
+<p>DuckDB community extensions are distributed for DuckDB's latest stable release.
+This adapter sets <code>USE_UNSTABLE_C_API=0</code> and <code>DUCKDB_CAPI_VERSION=v1.5.6</code>.
+DuckDB 2.0 stabilized the formerly unstable v1 functions at that API version.
+The binary therefore advertises <code>C_STRUCT</code> with <code>v1.5.6</code> metadata and exports
+<code>zarr_init_c_api</code>. Advertising <code>C_STRUCT_UNSTABLE</code> on DuckDB 2.0 instead selects
+the incompatible <code>zarr_init_c_api_v2</code> entrypoint.</p>
+<p><code>TARGET_DUCKDB_VERSION=v2.0.0</code> is the engine used by CI and Python tests, not
+the binary's API floor. The same native build has been tested on DuckDB 1.5.6
+and 2.0.0. Older engines are below its declared API floor. Other engines and
+platforms need their own validation; accepting the metadata is not a query test.</p>
+<p>A target-engine bump must update these pins in one reviewed change:</p>
+<ul>
+<li><code>Makefile</code> <code>TARGET_DUCKDB_VERSION</code></li>
+<li><code>Cargo.toml</code> exact <code>duckdb</code> crate pin</li>
+<li><code>Cargo.lock</code></li>
+</ul>
+<p>The local release gate checks the first two and that the distribution pipeline
+resolves its <code>duckdb_version</code> from the Makefile. <code>Cargo.lock</code> should change when
+<code>cargo update -p duckdb --precise &lt;crate-version&gt;</code> is run.</p>
+<p>The distribution pipeline deliberately carries <strong>no</strong> <code>duckdb_version:</code> literal
+of its own: <code>.github/workflows/MainDistributionPipeline.yml</code> resolves it from
+<code>TARGET_DUCKDB_VERSION</code> at build time. A literal inside a workflow file cannot
+be updated by an automated PR — GitHub refuses to let the Actions <code>GITHUB_TOKEN</code>
+push changes to files under <code>.github/workflows/</code> under any <code>permissions</code> grant
+— so the drift bot's bump PRs would fail to push and the literal would silently
+go stale. One pin site, the Makefile, keeps the automated path working.</p>
+<p>The <code>duckdb</code> crate version encodes the engine's major, minor and patch numbers:
+<code>v1.5.6</code> maps to <code>1.10506.0</code>, and the current <code>v2.0.0</code> maps to:</p>
+<pre><code class="language-toml">duckdb = { version = &quot;=1.20000.0&quot;, features = [&quot;loadable-extension&quot;] }
+</code></pre>
+<p>Do not bump <code>DUCKDB_CAPI_VERSION</code> with a routine engine update. It describes the
+API this adapter needs, not the installed engine. If that requirement changes,
+update the version requested in <code>src/lib.rs</code> and the compatibility tests too.</p>
+<p>Use the automated <code>DuckDB Version Drift</code> workflow for routine patch-line bumps.
+Treat major or minor DuckDB bumps as manual migrations: update the pins, rebuild,
+run <code>make lint</code>, and run <code>make test_release</code> before changing <code>description.yml</code>
+for community publication.</p>
+<h2 id="stable-vs-current-duckdb-main">Stable vs. Current DuckDB Main<a class="headerlink" href="#stable-vs-current-duckdb-main" title="Permanent link">&para;</a></h2>
+<p>Near DuckDB releases, <code>duckdb/community-extensions</code> can test extensions against
+both the latest stable release and DuckDB <code>main</code>. If one commit cannot support
+both, maintain two refs:</p>
+<pre><code class="language-yaml">repo:
+  github: xqlsystems/duckdb-zarr
+  ref: &lt;stable-compatible-tag-or-commit&gt;
+  ref_next: &lt;duckdb-main-compatible-commit&gt;
+</code></pre>
+<p>Use <code>ref</code> for the commit that works with the latest stable DuckDB release. Use
+<code>ref_next</code> only when DuckDB <code>main</code> needs source changes that should not replace
+the stable build yet. After DuckDB releases, the community repository can promote
+the <code>ref_next</code> commit to <code>ref</code>.</p>
+<p>The current frozen-v1 adapter can use the same source and binary on the two
+validated engine versions. <code>ref_next</code> is only needed when a future engine needs
+source or ABI changes that cannot serve the current stable release. Validate
+both refs before publication; <code>ref_next</code> by itself does not establish support.</p>
+<p>Render a descriptor carrying both refs with:</p>
+<pre><code class="language-sh">make render-community-descriptor REF=v0.1.1 REF_NEXT=&lt;upcoming-commit-sha&gt;
+</code></pre>
+<p><code>REF_NEXT</code> accepts a 40-character commit hash or a <code>vX.Y.Z</code> tag; the strict
+release check validates it is immutable. The rendered descriptor is written to
+<code>build/community-extensions/extensions/zarr/description.yml</code>. The
+<code>community-release.yml</code> workflow exposes the same <code>ref_next</code> as a dispatch input.</p>
+<p>Practical flow when a new DuckDB line is announced:</p>
+<ol>
+<li>Branch off <code>main</code>, apply the migration (CI-tools codename branch, version
+   pins, any source fixes), and get CI green — this is the commit tracked by the
+   <code>duckdb-major-bump</code> issue the drift bot opens.</li>
+<li>Submit a community PR whose descriptor sets <code>ref</code> to the current stable
+   release and <code>ref_next</code> to that branch's HEAD commit.</li>
+<li>Once DuckDB releases, promote <code>ref_next</code> to <code>ref</code> on your next routine
+   submission.</li>
+</ol>
+    <footer class="page-footer">
+      <a href="../versioning/">← Versioning</a>
+      
+    </footer>
+  </main>
+  <aside class="page-toc"><nav aria-label="On this page"><p class="nav-heading">On this page</p><ul><li><a href="#community-extension-release">Community Extension Release</a><ul><li><a href="#local-release-gate">Local Release Gate</a></li><li><a href="#github-release-automation">GitHub Release Automation</a></li><li><a href="#staying-current-with-duckdb-releases">Staying Current With DuckDB Releases</a></li><li><a href="#descriptor-notes">Descriptor Notes</a></li><li><a href="#submission-steps">Submission Steps</a></li><li><a href="#duckdb-version-policy">DuckDB Version Policy</a></li><li><a href="#stable-vs-current-duckdb-main">Stable vs. Current DuckDB Main</a></li></ul></li></ul></nav></aside>
+</div>
+</body>
+</html>

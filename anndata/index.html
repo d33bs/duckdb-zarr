@@ -1,0 +1,531 @@
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Query scientific Zarr arrays with DuckDB and SQL.">
+  <title>AnnData · duckdb-zarr documentation</title>
+  
+  <link rel="stylesheet" href="../site.css">
+  <script src="../site.js" data-site-root="../" data-search-url="../search/search_index.json" defer></script>
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="project-header">
+  <a class="wordmark" href="../"><img class="brand-logo" src="../images/logo.png" alt="" width="32" height="32">duckdb-zarr</a>
+  <nav class="project-links" aria-label="Project navigation">
+    <a href="../" aria-current="true">Documentation</a>
+    <a href="https://github.com/xqlsystems/duckdb-zarr">GitHub ↗</a>
+  </nav>
+  <div class="docs-tools">
+    <button type="button" class="guides-toggle" aria-expanded="false" aria-controls="guide-nav">Browse guides</button>
+    <form class="docs-search" role="search">
+      <label class="sr-only" for="docs-search-input">Search documentation</label>
+      <input id="docs-search-input" type="search" placeholder="Search the documentation…" autocomplete="off" aria-controls="search-results">
+      <div id="search-results" class="search-results" role="region" aria-label="Search results" aria-live="polite" hidden></div>
+    </form>
+  </div>
+</header>
+<div class="docs-layout">
+  <aside id="guide-nav" class="guide-nav">
+    <nav aria-label="Documentation guides">
+      <p class="nav-heading">In this guide</p>
+      <ul>
+  
+  <li>
+    <a href="..">Start here</a>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Field guides</span>
+    <ul>
+  
+  <li>
+    <a href="../biology/">Biology</a>
+    
+  </li>
+  
+  <li>
+    <a href="../examples/climate/">Climate</a>
+    
+  </li>
+  
+  <li>
+    <a href="../examples/geoscience/">Geoscience</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Formats</span>
+    <ul>
+  
+  <li>
+    <a href="./" aria-current="page">AnnData</a>
+    
+  </li>
+  
+  <li>
+    <a href="../ome-zarr/">OME-Zarr</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Reference</span>
+    <ul>
+  
+  <li>
+    <a href="../design/">How it works</a>
+    
+  </li>
+  
+  <li>
+    <a href="../domains/">Scientific domains</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+  <li>
+    <span class="guide-group">Development</span>
+    <ul>
+  
+  <li>
+    <a href="../website/">Documentation website</a>
+    
+  </li>
+  
+  <li>
+    <a href="../versioning/">Versioning</a>
+    
+  </li>
+  
+  <li>
+    <a href="../community-extension-release/">Release guide</a>
+    
+  </li>
+  
+</ul>
+    
+  </li>
+  
+</ul>
+    </nav>
+  </aside>
+  <main id="main-content" class="docs-content" tabindex="-1">
+    <p class="eyebrow">field guide</p>
+    <h1 id="querying-anndata-stores">Querying AnnData stores<a class="headerlink" href="#querying-anndata-stores" title="Permanent link">&para;</a></h1>
+<p><a href="https://anndata.readthedocs.io/">AnnData</a> is a file format of the
+<a href="https://scverse.org/">scverse</a> ecosystem for annotated data matrices. Its axes
+are observations (<code>obs</code>) and variables (<code>var</code>), not necessarily cells and genes.
+This page uses a cell-by-gene example to query a store that
+<code>AnnData.write_zarr()</code> wrote: annotations (<code>obs</code>, <code>var</code>), the expression matrix
+(<code>X</code>), <code>layers</code>, embeddings (<code>obsm</code>) and pairwise matrices (<code>obsp</code>, <code>varp</code>).</p>
+<p>The examples use the small test store in this repository. Run
+<code>make generate_fixtures</code> to create it. The store has 20 cells, named <code>cell_0</code>
+to <code>cell_19</code>, and 8 genes, named <code>gene_0</code> to <code>gene_7</code>.</p>
+<h2 id="when-to-use-sql-instead-of-loading-an-anndata-object">When to use SQL instead of loading an AnnData object<a class="headerlink" href="#when-to-use-sql-instead-of-loading-an-anndata-object" title="Permanent link">&para;</a></h2>
+<p>Use <a href="https://anndata.readthedocs.io/en/stable/generated/anndata.io.read_zarr.html"><code>anndata.read_zarr</code></a>
+when you want an <code>AnnData</code> object for slicing, analysis, or plotting in Python.
+Use <code>duckdb-zarr</code> when the result you need is a table: counts by annotation,
+expression summaries, or joins to sample metadata in CSV, Parquet, or another
+DuckDB table. You can query the store from SQL without first constructing an
+<code>AnnData</code> object. This is a relational view of the data, not a replacement for
+AnnData's analysis APIs or a full round-trip representation of the object.</p>
+<ul>
+<li>Start with <code>read_zarr_tables</code> to discover the available tables.</li>
+<li>Use <code>read_zarr</code> with <code>table_name :=</code> and, for child groups, <code>group_path :=</code>
+  for a one-off query. It decodes annotations and uses observation and variable
+  names as coordinates, so you can join <code>obs</code>, <code>var</code>, and <code>X</code> by name.</li>
+<li>Use <code>read_zarr_views</code> when several queries should share stable table names.
+  Run the returned SQL to create views; the views still read the Zarr store,
+  rather than copying it into DuckDB.</li>
+<li>Use <code>array_path :=</code> for a single array or encoded element, including arrays
+  under <code>uns</code>, or to inspect encoding components. This lower-level route uses
+  integer positions instead of observation and variable names; prefer the
+  tables for annotation joins.</li>
+</ul>
+<p>Sparse tables omit unstored zeros, so SQL aggregates need care: see
+<a href="#sparse-matrices-omit-zeros">Sparse matrices omit zeros</a>. See <a href="#limits">Limits</a>
+before substituting SQL reads for an AnnData workflow.</p>
+<h2 id="how-a-store-maps-to-tables">How a store maps to tables<a class="headerlink" href="#how-a-store-maps-to-tables" title="Permanent link">&para;</a></h2>
+<p>The extension reads an AnnData store as a tree of tables. Each Zarr group is
+a DuckDB schema, and each set of variables with the same dimensions in a group
+is one table. The root group is the schema <code>main</code>. The design is in
+<a href="../design/">docs/design.md</a>, decisions 8 and 9.</p>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Dimensions</th>
+<th>Table</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X</code></td>
+<td><code>obs</code>, <code>var</code></td>
+<td><code>main.obs_var</code></td>
+</tr>
+<tr>
+<td><code>obs</code> columns</td>
+<td><code>obs</code></td>
+<td><code>main.obs</code></td>
+</tr>
+<tr>
+<td><code>var</code> columns</td>
+<td><code>var</code></td>
+<td><code>main.var</code></td>
+</tr>
+<tr>
+<td><code>layers/*</code></td>
+<td><code>obs</code>, <code>var</code></td>
+<td><code>layers.obs_var</code></td>
+</tr>
+<tr>
+<td><code>obsm/&lt;k&gt;</code></td>
+<td><code>obs</code>, <code>&lt;k&gt;_component</code></td>
+<td><code>obsm.obs_&lt;k&gt;_component</code></td>
+</tr>
+<tr>
+<td><code>varm/&lt;k&gt;</code></td>
+<td><code>var</code>, <code>&lt;k&gt;_component</code></td>
+<td><code>varm.var_&lt;k&gt;_component</code></td>
+</tr>
+<tr>
+<td><code>obsp/*</code></td>
+<td><code>obs_i</code>, <code>obs_j</code></td>
+<td><code>obsp.obs_i_obs_j</code></td>
+</tr>
+<tr>
+<td><code>varp/*</code></td>
+<td><code>var_i</code>, <code>var_j</code></td>
+<td><code>varp.var_i_var_j</code></td>
+</tr>
+<tr>
+<td><code>raw/X</code></td>
+<td><code>obs</code>, <code>raw_var</code></td>
+<td><code>raw.obs_raw_var</code></td>
+</tr>
+<tr>
+<td><code>raw/var</code> columns</td>
+<td><code>raw_var</code></td>
+<td><code>raw.raw_var</code></td>
+</tr>
+</tbody>
+</table>
+<p>The <code>obs</code> column holds the cell name (<code>obs_names</code> in AnnData) and the <code>var</code>
+column holds the gene name (<code>var_names</code>). Every table has these names, so you
+can filter and join any table by name. Both axes of <code>obsp</code> show cell names, and
+both axes of <code>varp</code> show gene names. The <code>&lt;k&gt;_component</code> column of an <code>obsm</code>
+table is the component number, from 0.</p>
+<p>If a data frame has a column with the same name as its axis, for example an
+<code>obs</code> column called <code>obs</code>, that column keeps its path in the store as its
+name, <code>"obs/obs"</code>. Otherwise it would have the same name as the column of cell
+names.</p>
+<p>The extension decodes AnnData's encodings:</p>
+<ul>
+<li>A categorical column with string categories reads as a DuckDB <code>ENUM</code> of its
+  categories. A categorical with other categories (for example integers)
+  reads as the type of its categories. A missing value is <code>NULL</code>.</li>
+<li>A nullable column (<code>nullable-integer</code>, <code>nullable-boolean</code>,
+  <code>nullable-string-array</code>) reads as its values, with <code>NULL</code> where the mask is
+  set.</li>
+<li>A sparse matrix (<code>csr_matrix</code> or <code>csc_matrix</code>) reads as one row for each
+  stored entry. See <a href="#sparse-matrices-omit-zeros">Sparse matrices omit zeros</a>.</li>
+</ul>
+<p>The extension does not read <code>uns</code>. Read its arrays one at a time with
+<code>array_path=</code> (see <a href="#read-one-array">Read one array</a>).</p>
+<h2 id="list-the-tables">List the tables<a class="headerlink" href="#list-the-tables" title="Permanent link">&para;</a></h2>
+<p><code>read_zarr_tables</code> gives one row for each table. <code>group_path</code> is the Zarr
+group, <code>schema_name</code> is the DuckDB schema for that group, and <code>table_name</code> is
+the table name.</p>
+<pre><code class="language-sql">SELECT group_path, schema_name, table_name, dims
+FROM read_zarr_tables('test/fixtures/anndata/pbmc_like.zarr');
+</code></pre>
+<pre><code class="language-text">/        main    obs                   [obs]
+/        main    obs_var               [obs, var]
+/        main    var                   [var]
+/layers  layers  obs_var               [obs, var]
+/obsm    obsm    obs_X_umap_component  [obs, X_umap_component]
+/obsp    obsp    obs_i_obs_j           [obs_i, obs_j]
+/varp    varp    var_i_var_j           [var_i, var_j]
+</code></pre>
+<h2 id="read-a-table">Read a table<a class="headerlink" href="#read-a-table" title="Permanent link">&para;</a></h2>
+<p><code>read_zarr</code> reads the root group. The root has three tables, so use
+<code>table_name :=</code> to select one by the name <code>read_zarr_tables</code> gives it
+(<code>dims :=</code> with its dimensions works too). Use <code>group_path :=</code> to read another
+group.</p>
+<pre><code class="language-sql">-- Cell annotations: one row for each cell
+SELECT obs, cell_type, donor, n_genes
+FROM read_zarr('test/fixtures/anndata/pbmc_like.zarr', table_name := 'obs');
+
+-- Gene annotations: one row for each gene
+SELECT var, gene_symbol, mean_expr
+FROM read_zarr('test/fixtures/anndata/pbmc_like.zarr', table_name := 'var');
+
+-- The expression matrix: one row for each stored entry
+SELECT obs, var, X
+FROM read_zarr('test/fixtures/anndata/pbmc_like.zarr', table_name := 'obs_var');
+
+-- Two layers of one cell, by name
+SELECT var, spliced, unspliced
+FROM read_zarr('test/fixtures/anndata/pbmc_like.zarr', group_path := 'layers')
+WHERE obs = 'cell_0';
+</code></pre>
+<p>In this store, <code>cell_4</code> has no cell type, so <code>cell_type</code> is <code>NULL</code> for
+<code>cell_4</code>. <code>gene_6</code> has no symbol, so <code>gene_symbol</code> is <code>NULL</code> for <code>gene_6</code>.</p>
+<p><code>"group" :=</code> is the same parameter as <code>group_path :=</code>. <code>GROUP</code> is a keyword in
+DuckDB, so the quotes are necessary.</p>
+<h2 id="mount-the-store-as-a-database">Mount the store as a database<a class="headerlink" href="#mount-the-store-as-a-database" title="Permanent link">&para;</a></h2>
+<p>Views give each table a stable name, so queries do not repeat <code>read_zarr</code>.
+<code>read_zarr_views</code> returns the SQL statements that mount the store, one
+statement in each row. Run the statements in order and stop on the first error.
+They attach a new in-memory database, create one schema for each group, and
+create one view for each table. The database alias must not already exist;
+the first statement rejects it rather than replacing its views.</p>
+<pre><code class="language-sql">SELECT sql FROM read_zarr_views('test/fixtures/anndata/pbmc_like.zarr', 'pbmc');
+</code></pre>
+<pre><code>ATTACH ':memory:' AS &quot;pbmc&quot;;
+CREATE OR REPLACE VIEW &quot;pbmc&quot;.&quot;main&quot;.&quot;obs&quot; AS SELECT * FROM read_zarr('test/fixtures/anndata/pbmc_like.zarr', table_name := 'obs');
+CREATE OR REPLACE VIEW &quot;pbmc&quot;.&quot;main&quot;.&quot;obs_var&quot; AS SELECT * FROM read_zarr('test/fixtures/anndata/pbmc_like.zarr', table_name := 'obs_var');
+CREATE OR REPLACE VIEW &quot;pbmc&quot;.&quot;main&quot;.&quot;var&quot; AS SELECT * FROM read_zarr('test/fixtures/anndata/pbmc_like.zarr', table_name := 'var');
+CREATE SCHEMA IF NOT EXISTS &quot;pbmc&quot;.&quot;layers&quot;;
+CREATE OR REPLACE VIEW &quot;pbmc&quot;.&quot;layers&quot;.&quot;obs_var&quot; AS SELECT * FROM read_zarr('test/fixtures/anndata/pbmc_like.zarr', group_path := 'layers', table_name := 'obs_var');
+...
+</code></pre>
+<p>In Python, run each row:</p>
+<pre><code class="language-python">for (sql,) in con.sql(&quot;SELECT sql FROM read_zarr_views('pbmc_like.zarr', 'pbmc')&quot;).fetchall():
+    con.execute(sql)
+</code></pre>
+<p>In the DuckDB CLI, write the rows to a file, then read the file:</p>
+<pre><code>.bail on
+.mode list
+.headers off
+.once mount.sql
+SELECT sql FROM read_zarr_views('pbmc_like.zarr', 'pbmc');
+.read mount.sql
+</code></pre>
+<p>A table in <code>main</code> needs no schema name: <code>pbmc.obs</code> is <code>pbmc.main.obs</code>. The
+examples in the rest of this page use these views.</p>
+<p>To give a view a different name, use <code>view_names :=</code>. A key is a table name
+from <code>read_zarr_tables</code>. For a table that is not in the root group, the key
+starts with the group path:</p>
+<pre><code class="language-sql">SELECT sql FROM read_zarr_views('pbmc_like.zarr', 'pbmc',
+  view_names := MAP {'obs_var': 'X', 'layers/obs_var': 'layers'});
+</code></pre>
+<p>The views read the store again for each query. If you run many queries,
+<code>CREATE TABLE ... AS SELECT</code> copies the data into DuckDB once.</p>
+<h2 id="sparse-matrices-omit-zeros">Sparse matrices omit zeros<a class="headerlink" href="#sparse-matrices-omit-zeros" title="Permanent link">&para;</a></h2>
+<p>AnnData usually stores <code>X</code> as a sparse matrix. A table of sparse matrices has a
+row only where a matrix stores a value. A missing row means the value is 0.
+This store has 27 stored entries in a matrix of 160 cells, so the <code>X</code> table has
+27 rows.</p>
+<p>A matrix can store one position more than once if it was written without
+scipy's <code>sum_duplicates()</code>. That position gives one row, with the sum of the
+entries, as in scipy and anndata.</p>
+<p>For this reason, <code>AVG(X)</code> over the <code>X</code> table is a mean over the stored entries
+only. To get a mean over cells, start from <code>obs</code> and use a <code>LEFT JOIN</code>. Each
+cell then has one row, and <code>COALESCE</code> gives 0 to the cells that have no entry:</p>
+<pre><code class="language-sql">-- Mean expression of Cd4 in each cell type
+SELECT o.cell_type, AVG(COALESCE(x.X, 0)) AS mean_cd4
+FROM pbmc.obs o
+LEFT JOIN (
+  SELECT x.obs, x.X
+  FROM pbmc.obs_var x JOIN pbmc.var v USING (var)
+  WHERE v.gene_symbol = 'Cd4'
+) x USING (obs)
+GROUP BY o.cell_type;
+</code></pre>
+<pre><code class="language-text">B cell   17.666667
+NK cell   9.333333
+T cell   23.142857
+NULL      0.000000
+</code></pre>
+<p>When the gene names are the gene symbols, the
+inner query is not necessary: <code>LEFT JOIN pbmc.obs_var x ON x.obs = o.obs AND
+x.var = 'CD4'</code>.</p>
+<p>If a group has two or more sparse matrices with the same dimensions, they share
+one table. The table has a row for each position that at least one matrix
+stores. A matrix that has no value at that position reads as 0 in that row. In
+this store, <code>layers/spliced</code> stores 53 entries and <code>layers/unspliced</code> stores
+80. The <code>layers.obs_var</code> table has 106 rows, because 27 positions are in both.</p>
+<p>If a group has a sparse matrix and a dense array with the same dimensions,
+the table has a row for each cell. The sparse matrix reads as 0 where it stores
+no value. In this store, <code>varp</code> has a dense <code>corr</code> and a sparse <code>corr_csc</code>, so
+the <code>varp.var_i_var_j</code> table has 64 rows.</p>
+<h2 id="embeddings-and-pairwise-matrices">Embeddings and pairwise matrices<a class="headerlink" href="#embeddings-and-pairwise-matrices" title="Permanent link">&para;</a></h2>
+<p>An <code>obsm</code> table has one row for each cell and component. Use <code>FILTER</code> or
+<code>PIVOT</code> to get one column for each component:</p>
+<pre><code class="language-sql">-- UMAP coordinates of each cell
+SELECT u.obs,
+       MAX(u.X_umap) FILTER (WHERE u.X_umap_component = 0) AS umap_1,
+       MAX(u.X_umap) FILTER (WHERE u.X_umap_component = 1) AS umap_2
+FROM read_zarr('test/fixtures/anndata/pbmc_like.zarr', group_path := 'obsm') u
+GROUP BY u.obs;
+</code></pre>
+<p>An <code>obsp</code> table has one row for each stored pair of cells. For a neighbor
+graph, the neighbors of one cell are:</p>
+<pre><code class="language-sql">SELECT obs_j AS neighbor, connectivities
+FROM read_zarr('test/fixtures/anndata/pbmc_like.zarr', group_path := 'obsp')
+WHERE obs_i = 'cell_3';
+</code></pre>
+<h2 id="cell-names-must-be-unique">Cell names must be unique<a class="headerlink" href="#cell-names-must-be-unique" title="Permanent link">&para;</a></h2>
+<p>Joins on <code>obs</code> and <code>var</code> compare names. If two cells have the same name, a
+join matches each row of one cell to both cells, and the result has extra
+rows. anndata warns about duplicate names when it loads such a store. Make the
+names unique before you write the store, for example with
+<code>adata.obs_names_make_unique()</code> and <code>adata.var_names_make_unique()</code>.</p>
+<h2 id="read-one-array">Read one array<a class="headerlink" href="#read-one-array" title="Permanent link">&para;</a></h2>
+<p><code>array_path :=</code> reads one array and ignores the group structure. Use it for
+<code>uns</code>, or to look at the arrays that hold an encoded column.</p>
+<p>An AnnData element gets the same dimension names as in its table, but one
+array has no index to take names from, so its dimension columns hold integer
+positions. For example, <code>array_path := 'obs/n_genes'</code> gives the columns <code>obs</code>
+(0 to 19) and <code>value</code>. An array inside an encoded group has no AnnData
+dimensions. Its dimensions are <code>dim_0</code>, <code>dim_1</code>, and so on. For example,
+<code>array_path := 'obs/cell_type/codes'</code> gives the integer codes in the columns
+<code>dim_0</code> and <code>value</code>, and the categories are not applied. Pass <code>dims :=</code> to
+replace that placeholder with a more useful name for this query:</p>
+<pre><code class="language-sql">SELECT cell, value
+FROM read_zarr('test/fixtures/anndata/pbmc_like.zarr',
+  array_path := 'obs/cell_type/codes', dims := ['cell'])
+ORDER BY cell;
+</code></pre>
+<p>The value is still the raw category code; it does not become a coordinate,
+and <code>dims :=</code> cannot rename the already-named <code>obs</code>/<code>var</code> dimensions of an
+ordinary AnnData table read. See <a href="../design/#arrays-without-dimension-names">How duckdb-zarr works</a>
+for the full rules.</p>
+<p><code>read_zarr_metadata</code> lists every array. The <code>array_path_dims</code> column gives the
+dimension names that <code>array_path :=</code> uses for each array. With <code>group_path :=</code>,
+it lists the arrays of that group's tables: <code>group_path := '/'</code> gives the
+arrays of <code>X</code> and of the <code>obs</code> and <code>var</code> columns.</p>
+<pre><code class="language-sql">SELECT name, dtype, shape, array_path_dims
+FROM read_zarr_metadata('test/fixtures/anndata/pbmc_like.zarr')
+ORDER BY name;
+</code></pre>
+<p><code>array_path :=</code> also selects an encoded column on its own, decoded: a sparse
+matrix, a categorical or a nullable column. Like one array, its dimension
+columns hold integer positions. For example, <code>array_path := 'X'</code> gives the
+stored entries of a sparse <code>X</code> as <code>obs</code>, <code>var</code> and <code>value</code>, and
+<code>read_zarr_metadata(store, array_path := 'X')</code> lists the arrays it is made of.
+<code>group_path :=</code> cannot name an encoded column, because it is not a group of
+tables.</p>
+<h2 id="spatialdata-stores">SpatialData stores<a class="headerlink" href="#spatialdata-stores" title="Permanent link">&para;</a></h2>
+<p>This section covers the AnnData tables inside SpatialData stores and a join to
+a label image. It is not a comprehensive SpatialData tutorial and does not cover
+coordinate transformations or spatial analysis APIs. The tested example uses a
+small synthetic SpatialData-like store; it does not validate every SpatialData
+element or storage version.</p>
+<p>A <a href="https://spatialdata.scverse.org/">SpatialData</a> store keeps each table as an
+AnnData object at <code>tables/&lt;name&gt;</code>. The extension reads any group with
+<code>encoding-type: anndata</code> as an AnnData object, so each table is a schema of its
+own: <code>tables/cells</code> has the tables <code>obs</code>, <code>var</code> and <code>obs_var</code>, and
+<code>tables/cells/obsm</code> has the embeddings, with the cell names of <code>tables/cells</code>.</p>
+<p>The other elements of a SpatialData store are not AnnData:</p>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Format</th>
+<th>Read it with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>images/&lt;name&gt;</code>, <code>labels/&lt;name&gt;</code></td>
+<td>OME-Zarr</td>
+<td><code>read_zarr</code>. Read one scale with <code>array_path := 'labels/&lt;name&gt;/s0'</code>.</td>
+</tr>
+<tr>
+<td><code>points/&lt;name&gt;</code></td>
+<td>Parquet files in <code>points.parquet/</code></td>
+<td><code>read_parquet('store.zarr/points/&lt;name&gt;/points.parquet/*.parquet')</code></td>
+</tr>
+<tr>
+<td><code>shapes/&lt;name&gt;</code></td>
+<td>GeoParquet file <code>shapes.parquet</code></td>
+<td><code>read_parquet('store.zarr/shapes/&lt;name&gt;/shapes.parquet')</code>. The <code>geometry</code> column is a DuckDB <code>GEOMETRY</code>.</td>
+</tr>
+<tr>
+<td><code>tables/&lt;name&gt;</code></td>
+<td>AnnData</td>
+<td><code>read_zarr</code> with <code>group_path := 'tables/&lt;name&gt;'</code></td>
+</tr>
+</tbody>
+</table>
+<p>A table's attributes name the element it annotates (<code>region</code>), the <code>obs</code>
+column that holds that element's name (<code>region_key</code>), and the <code>obs</code> column
+that holds the instance id (<code>instance_key</code>). Join the table to the element on
+the instance id:</p>
+<ul>
+<li>In a label image, the pixel value is the instance id.</li>
+<li>In points, the instance id is a column, usually <code>instance_id</code>.</li>
+<li>In shapes, the instance id is the row's index. GeoPandas does not write a
+  default index (0, 1, 2, ...), so use the row number:
+  <code>read_parquet(..., file_row_number := true)</code> adds it as <code>file_row_number</code>.</li>
+</ul>
+<p>The example store <code>test/fixtures/anndata/spatialdata_like.zarr</code> has a label
+image <code>labels/cells</code> and a table <code>tables/cells</code> that annotates it. This query
+gives the area in pixels of each cell:</p>
+<pre><code class="language-sql">SELECT o.instance_id, o.region, COUNT(*) AS area_px
+FROM read_zarr('test/fixtures/anndata/spatialdata_like.zarr',
+  array_path := 'labels/cells/s0') AS l
+JOIN read_zarr('test/fixtures/anndata/spatialdata_like.zarr',
+  group_path := 'tables/cells', table_name := 'obs') AS o
+  ON l.value = o.instance_id
+GROUP BY ALL
+ORDER BY area_px DESC;
+</code></pre>
+<pre><code class="language-text">┌─────────────┬────────┬─────────┐
+│ instance_id │ region │ area_px │
+├─────────────┼────────┼─────────┤
+│           2 │ cells  │       4 │
+│           1 │ cells  │       3 │
+│           3 │ cells  │       2 │
+└─────────────┴────────┴─────────┘
+</code></pre>
+<p><code>read_zarr_views</code> mounts the tables and labels of a SpatialData store, for
+example as <code>sd."tables/cells".obs</code>. It does not mount points or shapes,
+because they are not Zarr. Create views for them with <code>read_parquet</code>.</p>
+<h2 id="limits">Limits<a class="headerlink" href="#limits" title="Permanent link">&para;</a></h2>
+<ul>
+<li>The extension uses this layout only in groups with
+  <code>encoding-type: anndata</code>. An old store that has no <code>encoding-type</code>
+  attributes reads only with <code>array_path :=</code>.</li>
+<li>The extension does not read <code>uns</code> or awkward arrays. In a MuData store, the
+  modalities (<code>mod/&lt;name&gt;</code>) read as AnnData objects, but the global <code>obs</code> and
+  <code>var</code> do not.</li>
+<li>Sparse matrices with the same dimensions and no dense array beside them
+  share a table only if all are CSR or all are CSC. A table that mixes the two
+  has no <code>table_name</code> in <code>read_zarr_tables</code>; read each matrix with
+  <code>array_path :=</code>.</li>
+<li>If two columns of one data frame differ only in case, or one has the name
+  of its axis, they keep their paths as names (<code>"obs/obs"</code>), because DuckDB
+  column names ignore case. A path that still collides gets a number
+  (<code>"obs/Obs_1"</code>).</li>
+<li>Remote stores need consolidated metadata to list arrays. Without it, only
+  <code>array_path :=</code> works.</li>
+</ul>
+    <footer class="page-footer">
+      <a href="../examples/geoscience/">← Geoscience</a>
+      <a href="../ome-zarr/">OME-Zarr →</a>
+    </footer>
+  </main>
+  <aside class="page-toc"><nav aria-label="On this page"><p class="nav-heading">On this page</p><ul><li><a href="#querying-anndata-stores">Querying AnnData stores</a><ul><li><a href="#when-to-use-sql-instead-of-loading-an-anndata-object">When to use SQL instead of loading an AnnData object</a></li><li><a href="#how-a-store-maps-to-tables">How a store maps to tables</a></li><li><a href="#list-the-tables">List the tables</a></li><li><a href="#read-a-table">Read a table</a></li><li><a href="#mount-the-store-as-a-database">Mount the store as a database</a></li><li><a href="#sparse-matrices-omit-zeros">Sparse matrices omit zeros</a></li><li><a href="#embeddings-and-pairwise-matrices">Embeddings and pairwise matrices</a></li><li><a href="#cell-names-must-be-unique">Cell names must be unique</a></li><li><a href="#read-one-array">Read one array</a></li><li><a href="#spatialdata-stores">SpatialData stores</a></li><li><a href="#limits">Limits</a></li></ul></li></ul></nav></aside>
+</div>
+</body>
+</html>
